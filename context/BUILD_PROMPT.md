@@ -50,9 +50,21 @@ You are the engineering lead building **ProjektSUBRO**, a compelling hackathon p
 - Preferred: Next.js + React + TypeScript + Tailwind.
 - Charts: Recharts or another reliable React chart library if needed.
 - State/data: deterministic logic + synthetic fixtures first; **prefer Supabase Postgres for hosted persistence** because its MCP is reportedly connected, subject to Codex visibility, authorized project selection, and security checks. Preserve a local/server-backed fallback.
-- Agent: server-side OpenAI (or compatible) structured tool/action selection, with deterministic validator and rule-driven insurer responses. Do not expose API credentials client-side.
+- Agent: server-side Google Gemini API 3.8 flash/flash-lite(or compatible) structured tool/action selection, with deterministic validator and rule-driven insurer responses. Do not expose API credentials client-side.
 - Version control/deployment: **GitHub + Vercel are the preferred connected services**; inspect MCP tools and approved targets before using them. Generate all application code **after 1:30 PM**. Deploy preview only after the app runs; verify the URL. Keep secrets in approved environment settings only.
 - Keep state transitions and cost calculations testable independently of visuals.
+
+## AI Provider
+
+Use the Google Gemini API exclusively for ProjektSUBRO's autonomous recovery agents.
+
+- SDK: @google/genai (official Google GenAI SDK)
+- Model: A suitable Gemini Flash model, configurable via environment variables
+- Authentication: GEMINI_API_KEY (server-side only)
+- Support structured outputs and autonomous tool/action selection.
+- Keep underwriting mathematics deterministic.
+- Enforce agent safety, spending limits, and stopping conditions.
+- Do not use OpenAI APIs as we don't have credits/API account. Google Gemmini API has free tier, so I find it more suitable.
 
 ### MCP readiness and first authorized actions (after official start)
 
