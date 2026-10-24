@@ -1,0 +1,26 @@
+export type Decision = 'BUY_CANDIDATE' | 'REVIEW' | 'DECLINED';
+export type ClaimStatus = 'ASSESSED' | 'PURCHASED_SIMULATED' | 'RECOVERY_ACTIVE' | 'RECOVERED' | 'PARTIAL' | 'ESCALATED' | 'STOPPED' | 'LOSS';
+export type Scenario = 'documentation' | 'administrative' | 'missing' | 'expired' | 'repeat' | 'conflict' | 'specialist' | 'partial' | 'negative' | 'permission';
+export type Action = 'READ_CLAIM' | 'READ_EVIDENCE' | 'CHECK_REQUIREMENTS' | 'REQUEST_EVIDENCE' | 'DRAFT_RESPONSE' | 'SUBMIT_TO_MOCK_INSURER' | 'RECHECK_ECONOMICS' | 'ESCALATE' | 'STOP';
+export type Evidence = { id: string; claimId: string; title: string; content: string; verified: boolean; date: string };
+export type AgentProposal = { action: Action; reason: string; sources: string[]; requiresHuman: boolean };
+export type AgentEvent = AgentProposal & { id: string; time: string; cost: number; outcome: string; actor: 'agent' | 'guardrail' | 'insurer'; mode: 'rules' | 'gemini' };
+export type Recovery = { steps: number; submissions: number; spent: number; events: AgentEvent[]; readEvidence: string[]; checked: boolean; readClaim: boolean; draft: string; draftSources: string[]; response: string; repeats: number; terminalReason: string | null; mode: 'rules' | 'gemini'; proposedAction: Action | null; invalidActions: number };
+export type Claim = {
+  id: string; clinic: string; insurer: string; service: string; denial: string; scenario: Scenario;
+  billed: number; allowed: number; patient: number; collectible: number; probability: number; offer: number; expectedCosts: number; daysToRecover: number;
+  serviceDate: string; submittedDate: string; deniedDate: string; deadline: string;
+  transferAuthorized: boolean; appealAuthorized: boolean; collectionAuthorized: boolean;
+  evidence: Evidence[]; requiredEvidence: string[]; contradiction: boolean; specialist: boolean; repeat: boolean; expired: boolean; finalDenial?: boolean;
+  status: ClaimStatus; recovery: Recovery | null; purchasePrice: number | null; fundedAt: string | null;
+};
+export type Settings = { capital: number; minMargin: number; riskReserve: number; apr: number; probabilityAdjustment: number; insurerCap: number; maxSteps: number; maxSubmissions: number; agentBudget: number };
+export type Assessment = { decision: Decision; reason: string; probability: number; expectedCollection: number; financingCost: number; totalCosts: number; expectedContribution: number; maxOffer: number; margin: number; eligible: boolean };
+export type LedgerEvent = { id: string; claimId: string; type: 'PURCHASE' | 'COLLECTION' | 'EXPENSE'; amount: number; time: string; description: string };
+export type AuditEvent = { id: string; claimId: string; time: string; action: string; reason: string };
+export type Session = { id: string; revision: number; claims: Claim[]; settings: Settings; ledger: LedgerEvent[]; audit: AuditEvent[]; createdAt: string; underwritten: boolean };
+export type Portfolio = { totalCollectible: number; expectedCollection: number; proposedFunding: number; expectedContribution: number; deployed: number; collected: number; expenses: number; cash: number; realizedContribution: number; selectedIds: string[]; counts: Record<Decision, number> };
+export type DemoResponse = { session: Session; mode: 'rules' | 'gemini'; persistence: string; error?: string };
+export type DemoCommand = 'underwrite' | 'settings' | 'claim' | 'purchase' | 'step' | 'chaos' | 'reset' | 'resetClaim' | 'escalate';
+export const SIMULATION_DATE = '2026-10-24';
+export const DEFAULT_SETTINGS: Settings = { capital: 5000000, minMargin: 0.1, riskReserve: 0, apr: 0, probabilityAdjustment: 0, insurerCap: 1, maxSteps: 8, maxSubmissions: 3, agentBudget: 200 };
