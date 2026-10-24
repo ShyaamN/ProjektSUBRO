@@ -1,8 +1,20 @@
 import { test, expect } from '@playwright/test';
 
+test('claims workspace explains the product and exposes task-oriented navigation', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Claims', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Claims', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Recovery', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Capital', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Outcomes', exact: true })).toBeVisible();
+  await expect(page.getByText(/discounted simulated cash offer/i)).toBeVisible();
+  await expect(page.getByText(/transferring.*recovery risk/i)).toBeVisible();
+  await expect(page.getByText(/no actual payments or insurer communication/i)).toBeVisible();
+});
+
 test('underwriting explains its historical support, break-even and qualitative analysis', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button',{name:'Underwriting Desk',exact:true}).click();
+  await page.getByRole('button',{name:'Review assessment',exact:true}).click();
   await expect(page.getByText('80 / 100',{exact:true})).toBeVisible();
   await expect(page.getByText('66%',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Analyze claim',exact:true}).click();
@@ -12,10 +24,11 @@ test('underwriting explains its historical support, break-even and qualitative a
 
 test('a judge can reprice, fund, recover, reconcile and refresh without duplicate collection', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'Underwrite portfolio', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Underwrite portfolio', exact: true }).click();
-  await page.getByRole('button', { name: 'Underwriting Desk', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Assess 100 claims', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Assess 100 claims', exact: true }).click();
+  await page.getByRole('button', { name: 'Review assessment', exact: true }).click();
   await expect(page.getByTestId('expected-contribution')).toHaveText('+$70.00');
+  await page.getByText('Adjust offer & stress-test assumptions', {exact:true}).click();
   await page.getByRole('button', { name: '50% risk shock' }).click();
   await expect(page.getByTestId('expected-contribution')).toHaveText('−$80.00');
   await expect(page.getByRole('button', { name: 'Accept simulated offer', exact: true })).toBeDisabled();
@@ -35,7 +48,7 @@ test('a judge can reprice, fund, recover, reconcile and refresh without duplicat
 
 test('an unchanged insurer refusal autonomously stops within eight steps', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Underwriting Desk', exact: true }).click();
+  await page.getByRole('button', { name: 'Review assessment', exact: true }).click();
   await page.getByLabel('Demo scenario').selectOption('CASE-4109');
   await page.getByRole('button', { name: 'Accept simulated offer', exact: true }).click();
   await page.getByRole('button', { name: 'Start agent', exact: true }).click();
@@ -49,14 +62,37 @@ test('an unchanged insurer refusal autonomously stops within eight steps', async
 
 test('missing evidence is review-only and can be introduced explicitly as synthetic data', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Underwriting Desk', exact: true }).click();
+  await page.getByRole('button', { name: 'Review assessment', exact: true }).click();
   await page.getByLabel('Demo scenario').selectOption('CASE-3021');
   await expect(page.getByRole('button', { name: 'Accept simulated offer', exact: true })).toBeDisabled();
   const current=await (await page.request.get('/api/demo')).json();
   const add=await page.request.post('/api/demo', {headers:{origin:new URL(page.url()).origin},data:{command:'chaos',claimId:'CASE-3021',kind:'inject',revision:current.session.revision}});
   expect(add.ok()).toBe(true);
   await page.reload();
-  await page.getByRole('button', { name: 'Underwriting Desk', exact: true }).click();
+  await page.getByRole('button', { name: 'Review assessment', exact: true }).click();
   await page.getByLabel('Demo scenario').selectOption('CASE-3021');
   await expect(page.getByRole('button', { name: 'Accept simulated offer', exact: true })).toBeEnabled();
 });
+
+for (const viewport of [{width:1440,height:900},{width:1280,height:720},{width:390,height:844}]) {
+  test(`claims remain searchable and navigation works at ${viewport.width}x${viewport.height}`, async ({page}) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    await page.getByLabel('Search claims').fill('CASE-3021');
+    await expect(page.getByRole('row', {name:'Inspect CASE-3021'})).toBeVisible();
+    await expect(page.locator('.claim-table tbody tr')).toHaveCount(1);
+    await page.getByRole('row', {name:'Inspect CASE-3021'}).click();
+    await page.getByRole('button', {name:'Review assessment',exact:true}).click();
+    await expect(page.getByRole('heading', {name:'CASE-3021',exact:true})).toBeVisible();
+    await expect(page.getByRole('button', {name:'Accept simulated offer',exact:true})).toBeDisabled();
+    await page.getByRole('button', {name:'Capital',exact:true}).click();
+    await expect(page.getByRole('heading', {name:'Capital',exact:true})).toBeVisible();
+    await page.getByLabel('Capital cap',{exact:true}).fill('25000');
+    await page.getByLabel('Capital cap',{exact:true}).blur();
+    await expect(page.getByLabel('Capital cap',{exact:true})).toHaveValue('25000');
+    await page.getByRole('button', {name:'Outcomes',exact:true}).click();
+    await expect(page.getByRole('heading', {name:'Outcomes',exact:true})).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
+}

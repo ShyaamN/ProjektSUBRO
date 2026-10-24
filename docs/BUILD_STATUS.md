@@ -1,4 +1,19 @@
-# Current checkpoint — underwriting v2
+# Product redesign checkpoint — October 24, 2026
+
+The product UI has been rebuilt locally using the saved OpenDesign Cloud visual direction: ivory surfaces, forest green actions, serif headings, and a Claims / Recovery / Capital / Outcomes workspace. The existing 100-claim pipeline, server decisions, risk model, evidence, bounded recovery and ledger remain authoritative.
+
+## Redesign verification
+- 80 domain/API checks passed (11 native + 69 Vitest); TypeScript passed.
+- 8 browser flows passed: product/navigation clarity; historical support and qualitative analysis; stress-test → explicit purchase → recovery → ledger → refresh without duplicate collection; repeated-refusal stop; synthetic missing-evidence injection; searchable claims and capital/outcomes navigation at 1440×900, 1280×720 and 390×844.
+- Production build passed with `npm run build -- --webpack`. Local Turbopack encountered a Windows child-process failure; the supported webpack compiler built successfully. Deployment uses the project's normal Linux build.
+- Visual checks covered Claims, assessment, Recovery, Capital and Outcomes. Fixed compact selected-claim action visibility, navigation scroll reset, inherited dark backgrounds/low-contrast text and negative-zero display.
+- Fresh independent review found the compact inspector issue; it was reproduced and fixed. No other Important/Critical findings.
+- OpenDesign Cloud produced HTML/CSS/JS, saved under ignored `.superpowers/opendesign-reference/`. The Cloud run itself failed for insufficient credits. Switching accounts cannot access the original project. The user explicitly authorized continuing locally; no additional Cloud generation was purchased. Generated illustrative data was not wired into the app.
+- Protected preview deployment: pending current UI commit; record follows after live verification.
+
+---
+
+# Previous checkpoint — underwriting v2
 
 Read `docs/PRODUCT_REDESIGN_HANDOFF.md` for the active user request and exact continuation context. **The user rejected the existing UI. A full Open Design product overhaul remains outstanding.** Current interface additions are functional risk transparency, not that redesign.
 
@@ -16,8 +31,8 @@ Read `docs/PRODUCT_REDESIGN_HANDOFF.md` for the active user request and exact co
 - Open Design0.26.1 installed, registered/enabled; real initialize/tools-list handshake passed with22tools. This chat cannot hot-load its native tool list. A short-lived direct MCP bridge lost its attributed Brief between calls, so confirmation was rejected; bridge stopped. **No design generation/project/run started.** Use a fresh task in this same project, explicitly restart the workflow, and keep its native MCP session intact. Setup no longer blocked on installation.
 
 ## Current remaining
-- Build and publish final risk-v2 commit/preview, verify new fields and qualitative review live; update this status with exact IDs.
-- Start one fresh task in the same project to load Open Design tools and do the **actual full product UI overhaul**, integrate, test and deploy. Use the handoff brief; do not repeat brainstorming or redo completed risk work.
+- Risk v2 commit e8b5924fa395cbc8c94a486b8fe7491548fa8892 is pushed. Protected staging deployment dpl_7yK7ArLrgyVaktprpK5UTQF1ijSQ is READY at https://projektsubro-dlpeyohpk-shyaamns-projects.vercel.app/ . Live GET returned200, Gemini mode, durable Supabase storage,100claims and CASE1042 cohort80/100 with Wilson interval. Qualitative review was verified locally against actual Gemini; it has not yet been exercised on this new preview.
+- The user authorized and started fresh product-redesign chat 01a17010-c73e-7082-8321-43293910ee4d in this same saved project. That chat confirmed native Open Design tools are loaded and the attributed workflow is active. It owns the **actual full product UI overhaul**, integration, testing and deployment. Use the handoff brief; do not repeat brainstorming or redo completed risk work.
 - Working dependencies are installed and pinned. No npm installs are currently pending. Never print `.env.local` or credentials.
 
 ## Preserved decisions
