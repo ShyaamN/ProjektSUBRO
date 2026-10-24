@@ -1,0 +1,52 @@
+import { test, expect } from '@playwright/test';
+
+test('a judge can reprice, fund, recover, reconcile and refresh without duplicate collection', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Underwrite portfolio', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Underwrite portfolio', exact: true }).click();
+  await page.getByRole('button', { name: 'Underwriting Desk', exact: true }).click();
+  await expect(page.getByTestId('expected-contribution')).toHaveText('+$70.00');
+  await page.getByRole('button', { name: '50% risk shock' }).click();
+  await expect(page.getByTestId('expected-contribution')).toHaveText('−$80.00');
+  await expect(page.getByRole('button', { name: 'Accept simulated offer', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: '80% baseline' }).click();
+  await page.getByRole('button', { name: 'Accept simulated offer', exact: true }).click();
+  await page.getByRole('button', { name: 'Start agent', exact: true }).click();
+  await expect(page.getByText('RECOVERED', { exact: true }).first()).toBeVisible({ timeout: 30000 });
+  await page.getByRole('button', { name: 'View ledger', exact: true }).click();
+  await expect(page.getByText('+$170.00', { exact: true }).first()).toBeVisible();
+  await page.reload();
+  const response = await page.request.get('/api/demo');
+  const { session } = await response.json();
+  expect(session.ledger.filter((x: {type:string}) => x.type === 'PURCHASE')).toHaveLength(1);
+  expect(session.ledger.filter((x: {type:string}) => x.type === 'COLLECTION')).toHaveLength(1);
+  expect(session.claims.find((c: {id:string})=>c.id==='CASE-1042').status).toBe('RECOVERED');
+});
+
+test('an unchanged insurer refusal autonomously stops within eight steps', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Underwriting Desk', exact: true }).click();
+  await page.getByLabel('Demo scenario').selectOption('CASE-4109');
+  await page.getByRole('button', { name: 'Accept simulated offer', exact: true }).click();
+  await page.getByRole('button', { name: 'Start agent', exact: true }).click();
+  await expect(page.getByText('REPEATED_NO_PROGRESS', { exact: false }).first()).toBeVisible({ timeout: 30000 });
+  const { session } = await (await page.request.get('/api/demo')).json();
+  const claim=session.claims.find((c:{id:string})=>c.id==='CASE-4109');
+  expect(claim.recovery.steps).toBeLessThanOrEqual(8);
+  expect(claim.recovery.submissions).toBe(2);
+  expect(session.ledger.filter((x:{type:string})=>x.type==='COLLECTION')).toHaveLength(0);
+});
+
+test('missing evidence is review-only and can be introduced explicitly as synthetic data', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Underwriting Desk', exact: true }).click();
+  await page.getByLabel('Demo scenario').selectOption('CASE-3021');
+  await expect(page.getByRole('button', { name: 'Accept simulated offer', exact: true })).toBeDisabled();
+  const current=await (await page.request.get('/api/demo')).json();
+  const add=await page.request.post('/api/demo', {headers:{origin:new URL(page.url()).origin},data:{command:'chaos',claimId:'CASE-3021',kind:'inject',revision:current.session.revision}});
+  expect(add.ok()).toBe(true);
+  await page.reload();
+  await page.getByRole('button', { name: 'Underwriting Desk', exact: true }).click();
+  await page.getByLabel('Demo scenario').selectOption('CASE-3021');
+  await expect(page.getByRole('button', { name: 'Accept simulated offer', exact: true })).toBeEnabled();
+});
