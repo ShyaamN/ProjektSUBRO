@@ -13,7 +13,7 @@ const signed = (cents: number, decimals = 2) => `${cents > 0 ? '+' : cents < 0 ?
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const probabilityAvailable = (c: Claim, a: Assessment) => c.riskMode === 'manual' || c.riskMode === 'legacy' || a.risk?.status === 'SUPPORTED';
 const probabilityLabel = (c: Claim, a: Assessment) => probabilityAvailable(c, a) ? pct(a.probability) : 'Insufficient data';
-displayText = (value: string) => value
+const displayText = (value: string) => value
   .replace(/FABRICATED DEMO RECORD\.\s*/gi, '')
   .replace(/Training and holdout outcomes are fabricated; their measured fit does not validate real insurer recovery\.?/gi, '')
   .replace(/Its frequency is a synthetic assumption, not clinical validation\./gi, 'Its recovery frequency is an estimate, not a guarantee of payment.')
@@ -24,7 +24,7 @@ displayText = (value: string) => value
   .replace(/\b(?:synthetic|fabricated|simulated|mock|hypothetical|demo|demonstration)\b[ -]*/gi, '')
   .replace(/\bfixture\b/gi, 'starting case')
   .replace(/\bHistorical\b/g, 'Cohort').replace(/\bhistorical\b/g, 'cohort').replace(/  +/g, ' ').trim();
-const title = (s: string) => displayText(s).toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+const title = (s: string) => displayText(s).toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
 const terminal = (claim: Claim) => ['RECOVERED', 'PARTIAL', 'ESCALATED', 'STOPPED', 'LOSS'].includes(claim.status);
 const cases = [ ['CASE-1042', 'Documentation · good evidence'], ['CASE-2088', 'Deadline · expired window'], ['CASE-3021', 'Evidence · missing document'], ['CASE-4109', 'Loop · repeated denial'], ['CASE-5060', 'Conflict · contradictory record'], ['CASE-6077', 'Settlement · partial recovery'] ];
 
