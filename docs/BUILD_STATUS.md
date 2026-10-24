@@ -9,7 +9,9 @@ The product UI has been rebuilt locally using the saved OpenDesign Cloud visual 
 - Visual checks covered Claims, assessment, Recovery, Capital and Outcomes. Fixed compact selected-claim action visibility, navigation scroll reset, inherited dark backgrounds/low-contrast text and negative-zero display.
 - Fresh independent review found the compact inspector issue; it was reproduced and fixed. No other Important/Critical findings.
 - OpenDesign Cloud produced HTML/CSS/JS, saved under ignored `.superpowers/opendesign-reference/`. The Cloud run itself failed for insufficient credits. Switching accounts cannot access the original project. The user explicitly authorized continuing locally; no additional Cloud generation was purchased. Generated illustrative data was not wired into the app.
-- Protected preview deployment: pending current UI commit; record follows after live verification.
+- Published UI commit: `04e4b9f5b16e53c3515d4a8288b389446b7d1d02` through the authenticated GitHub connector (local equivalent UI commit `bc52c14297938163f5f4c802363427a8857e2e9e`). The shell Git credential manager awaited login, so connector publication was used; local and remote commit histories differ. Source changes are backed up on the existing feature branch and PR1.
+- Protected staging deployment `dpl_2JAaVyHUummotYWcB8GpDtR3jGN8` is READY at https://projektsubro-rl5zh7pkj-shyaamns-projects.vercel.app/ from the published UI commit. Vercel's normal build succeeded; SSO deployment protection remains enabled.
+- Fresh live browser verification passed:100 claims, Gemini mode, durable Supabase storage; actual Gemini qualitative review COMPLETE; explicit simulated purchase; five actual Gemini recovery actions; CASE-1042 RECOVERED; exactly one PURCHASE and one COLLECTION; refresh preserved the single collection. Temporary23-hour access link was created and shared privately; no share token is committed.
 
 ---
 
