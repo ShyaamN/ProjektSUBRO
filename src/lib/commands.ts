@@ -3,6 +3,8 @@ import { createSession } from './fixtures.ts';
 import { changeClaim, chaos, escalate, portfolio, purchase, recoverPreflight, resetClaim, step } from './engine.ts';
 import { assess, validateSettings } from './underwriting.ts';
 import { geminiProposal, GeminiFailure } from './gemini.ts';
+import { captureHumanRiskHold, refreshRisk } from './risk.ts';
+import { reviewRisk } from './risk-review.ts';
 import type { Session } from './types.ts';
 
 const cents = z.number().int().min(0).max(1000000000);
@@ -16,7 +18,7 @@ const schema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('reset'), revision }).strict(),
   z.object({ command: z.literal('settings'), revision, patch: settingsPatch }).strict(),
   z.object({ command: z.literal('claim'), revision, claimId: id, patch: claimPatch }).strict(),
-  ...(['purchase', 'step', 'resetClaim', 'escalate'] as const).map(command => z.object({ command: z.literal(command), revision, claimId: id }).strict()),
+  ...(['purchase', 'step', 'resetClaim', 'escalate', 'analyze'] as const).map(command => z.object({ command: z.literal(command), revision, claimId: id }).strict()),
   z.object({ command: z.literal('chaos'), revision, claimId: id, kind: z.enum(['missing', 'inject', 'repeat', 'conflict', 'expired', 'negative', 'specialist', 'responsibility', 'finalDenial']) }).strict(),
 ]);
 export type ParsedCommand = z.infer<typeof schema>;
@@ -32,9 +34,9 @@ export async function executeCommand(s: Session, command: ParsedCommand) {
       return;
     }
     case 'underwrite':
-      s.claims.forEach(c => assess(c, s.settings));
+      s.claims.forEach(c => { refreshRisk(c); assess(c, s.settings); });
       s.underwritten = true;
-      audit(s, 'UNDERWRITE', 'Deterministic synthetic assumptions assessed; offers remain unaccepted.');
+      audit(s, 'UNDERWRITE', 'Matched synthetic training outcomes assessed with sample counts and uncertainty. Deterministic rules own pricing; no portfolio-wide model calls.');
       return;
     case 'settings': {
       const settings = { ...s.settings, ...command.patch };
@@ -54,6 +56,16 @@ export async function executeCommand(s: Session, command: ParsedCommand) {
     case 'chaos': chaos(s, command.claimId, command.kind); return;
     case 'resetClaim': resetClaim(s, command.claimId); return;
     case 'escalate': escalate(s, command.claimId); return;
+    case 'analyze': {
+      const claim=s.claims.find(c=>c.id===command.claimId);
+      if(!claim)throw new Error('Unknown synthetic claim');
+      // Refresh current cohort support without changing an accepted purchase price.
+      refreshRisk(claim);
+      claim.riskReview=await reviewRisk(claim);
+      captureHumanRiskHold(claim);
+      audit(s,'QUALITATIVE_RISK_REVIEW',`${claim.riskReview.source} qualitative review; deterministic historical probability retained.${claim.riskReview.error?' '+claim.riskReview.error:''}`,claim.id);
+      return;
+    }
     case 'step': {
       const claim = s.claims.find(c => c.id === command.claimId);
       if (!claim || !claim.recovery || claim.purchasePrice === null) throw new Error('Accept a simulated offer before starting recovery.');

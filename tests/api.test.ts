@@ -89,6 +89,16 @@ describe('validated demo commands', () => {
   });
 });
 describe('demo route', () => {
+  it('analyzes a selected claim without allowing model numerical writes through the endpoint', async () => {
+    const first=await GET(new Request('http://localhost:3000/api/demo'));
+    const cookie=first.headers.get('set-cookie')!.split(';')[0];
+    const response=await POST(request({command:'analyze',revision:0,claimId:'CASE-1042'},cookie));
+    const data=await response.json();
+    expect(response.status).toBe(200);expect(data.session.claims[0].riskReview.source).toBe('rules');
+    expect(data.session.claims[0].risk.probability).toBe(.8);expect(data.session.ledger).toHaveLength(0);
+    const injected=await POST(request({command:'analyze',revision:1,claimId:'CASE-1042',probability:.99},cookie));
+    expect(injected.status).toBe(400);
+  });
   it('uses the browser Host behind a wildcard Next listener for same-origin checks', async () => {
     const first=await GET(new Request('http://0.0.0.0:3000/api/demo',{headers:{host:'localhost:3000'}}));
     const cookie=first.headers.get('set-cookie')!.split(';')[0];

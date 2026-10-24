@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, type Claim, type Scenario, type Session } from './types.ts';
+import { refreshRisk } from './risk.ts';
 
 const insurers = ['Meridian Health', 'Northstar Assurance', 'Cobalt Care', 'Evergreen Mutual'];
 const clinics = ['Sunshine Clinic', 'Mesa Family Care', 'Harbor Medical Group', 'Juniper Health'];
@@ -22,13 +23,14 @@ export function makeClaim(id: string, index: number, scenario: Scenario, collect
   const base: Claim = {
     id,clinic:clinics[index%4],insurer:insurers[index%4],service:'Synthetic outpatient encounter',denial:labels[scenario],scenario,
     billed:id==='CASE-1042'?100000:Math.round(allowed*1.6),allowed,patient,collectible,
-    probability:scenario==='negative'?.25:.8,offer:Math.round(collectible*.6),expectedCosts:id==='CASE-1042'?3000:Math.max(3000,Math.round(collectible*.05)),daysToRecover:60,
+    probability:0,offer:Math.round(collectible*.6),expectedCosts:id==='CASE-1042'?3000:Math.max(3000,Math.round(collectible*.05)),daysToRecover:60,
     serviceDate:'2026-09-03',submittedDate:'2026-09-08',deniedDate:'2026-09-20',deadline:scenario==='expired'?'2026-10-01':'2026-12-20',
     transferAuthorized:true,appealAuthorized:scenario!=='permission',collectionAuthorized:true,
     evidence:scenario==='missing'?[]:[evidence],requiredEvidence:[evidenceId],contradiction:scenario==='conflict',specialist:scenario==='specialist',repeat:scenario==='repeat',expired:scenario==='expired',
     status:'ASSESSED',recovery:null,purchasePrice:null,fundedAt:null,
   };
   if(scenario==='partial') { base.offer=15000; base.expectedCosts=3000; }
+  refreshRisk(base, false);
   return base;
 }
 

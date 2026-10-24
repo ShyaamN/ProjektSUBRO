@@ -20,7 +20,7 @@ Open http://localhost:3000. All nine original planning documents remain in `cont
 ## Demonstrate in two minutes
 
 1. Underwrite the 100 synthetic claims on Trading Floor. Inspect the allocation under the capital, margin and insurer exposure controls.
-2. Open Underwriting Desk, CASE-1042. $1,000 billed becomes $600 allowed, less $100 patient share: only $500 potentially insurer-payable. At 80%, expected collection is $400. Less $300 advance and $30 hypothetical work cost gives **+$70 expected contribution**.
+2. Open Underwriting Desk, CASE-1042. $1,000 billed becomes $600 allowed, less $100 patient share: only $500 potentially insurer-payable. The matched fabricated training cohort has 80 recoveries in 100 cases, giving an illustrative 80% estimate with a Wilson interval of approximately 71–87%. Expected collection is $400. Less $300 advance and $30 hypothetical work cost gives **+$70 expected contribution**. Break-even is 66%; the default margin policy requires 72%.
 3. Select **50% risk shock**: the original offer becomes **−$80 expected contribution** and is disabled. Restore **80% baseline**.
 4. **Accept simulated offer**, then **Start agent**. Evidence retrieval, exact-source draft and deterministic mock insurer lead to $500 collection. With the fixed $30 synthetic operations cost, realized contribution is **+$170**. Funding and collection each book once.
 5. Choose CASE-4109, fund, start: two unchanged refusals force **REPEATED_NO_PROGRESS**. CASE-3021 cannot be funded without explicitly injecting its missing fabricated document. CASE-2088 is declined despite its $20,000 collectible because its deadline expired.
@@ -29,13 +29,14 @@ Open http://localhost:3000. All nine original planning documents remain in `cont
 ## Architecture and trust boundaries
 
 - Next.js App Router, React, TypeScript, Tailwind; custom institutional terminal UI.
-- Integer-cent deterministic underwriting and contribution calculations. Synthetic probabilities are editable assumptions, not empirically trained predictions.
+- Integer-cent deterministic underwriting and contribution calculations. Historical probabilities come from matched fabricated outcome frequencies; manual stress tests are explicitly labeled overrides. Neither is evidence of real insurer predictive performance.
 - Allocation uses a disclosed greedy contribution-per-advance heuristic, with capital, expense reserves and insurer exposure limits. It is not guaranteed globally optimal.
 - A server-owned session contains claims, ledger and audit atomically. The browser gets only a cryptographically random HttpOnly capability cookie. It cannot submit arbitrary snapshots or model actions.
 - Every purchase/collection has a stable event key. Revision CAS prevents duplicate financial commits. A durable Supabase lease is acquired **before** any model call, preventing concurrent server instances from duplicating provider work for the same session revision. A crashed lease expires after 60 seconds.
 - Gemini can propose one of nine allowlisted actions. It cannot alter money, invent evidence or insurer outcomes, run SQL, access infrastructure tools or send real communications. Every clinical/service assertion in a draft is an exact verified source excerpt with its evidence ID.
 - The independent mock insurer checks evidence, permissions, deadline and scenario conditions. Eloquence never replaces proof.
 - Hard limits: eight actions, three insurer submissions, $2 **hypothetical action accounting** budget. Missing or conflicting evidence, expired deadlines, human-required actions, repeated no progress, specialist issues and negative remaining economics stop or escalate the run.
+- A selected claim's **Analyze claim** action asks Gemini to select supported qualitative factors with evidence IDs. The server supplies factual explanations for those validated factors; unconstrained model prose and numerical forecasts are not accepted. Human-review holds persist independently across edits and re-analysis until an explicit synthetic reset.
 - The UI drives one server step at a time while the page is open. Pause stops future steps; an in-flight step may finish. This is an interactive bounded agent demonstration, not a background production worker.
 
 ## Configuration
@@ -47,6 +48,14 @@ Copy `.env.example` to `.env.local` without overwriting existing private setting
 - Without Supabase, local development persists sessions under ignored `.demo/`. Hosted fallback is explicitly labeled ephemeral server memory and can reset across server instances/restarts. Use Supabase for a reliable hosted demo.
 
 The $30 work charge and $0.10-per-step telemetry are fabricated scenario assumptions. Step amounts are included in the work charge, not added twice. No actual Gemini usage cost is inferred from them. Financing assumptions use advance × APR × modeled days / 365 and are included in both expected and realized synthetic costs.
+
+## Who makes the decision?
+
+The cohort estimator calculates the recovery frequency. Gemini assesses supported circumstances. Deterministic rules decide whether evidence, permissions, deadlines, historical support, economics and capital permit an offer. The clinic must explicitly accept the simulated offer. The independent mock insurer determines the scenario outcome; the recovery agent cannot authorize its own collection.
+
+The history consists of **1,700 fabricated training outcomes and 800 separate fabricated holdout outcomes**. Rates match insurer, denial class, evidence state, authorization and deadline conditions. Fewer than 30 matching training records produces **no statistical estimate and a review hold**. Manual hypothetical calculations never remove that hold.
+
+Wilson intervals illustrate binomial sampling uncertainty under the synthetic assumptions. The separate holdout check computes a Brier score and predicted-versus-observed frequency bins. Brier is a probability loss, **not accuracy**. These deliberately designed labels demonstrate the validation mechanism; they do not validate a commercial underwriting model.
 
 ## Verify
 

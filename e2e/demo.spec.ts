@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
 
+test('underwriting explains its historical support, break-even and qualitative analysis', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button',{name:'Underwriting Desk',exact:true}).click();
+  await expect(page.getByText('80 / 100',{exact:true})).toBeVisible();
+  await expect(page.getByText('66%',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Analyze claim',exact:true}).click();
+  await expect(page.getByText('Rules review · no Gemini call',{exact:true})).toBeVisible();
+  await expect(page.getByTestId('expected-contribution')).toHaveText('+$70.00');
+});
+
 test('a judge can reprice, fund, recover, reconcile and refresh without duplicate collection', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Underwrite portfolio', exact: true })).toBeVisible();

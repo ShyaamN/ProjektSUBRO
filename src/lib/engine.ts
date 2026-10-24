@@ -1,6 +1,7 @@
 import type { Session, AgentProposal, Claim, Portfolio, LedgerEvent, Action } from './types.ts';
 import { assess, allocate, validateSettings } from './underwriting.ts';
 import { makeClaim } from './fixtures.ts';
+import { captureHumanRiskHold, refreshRisk } from './risk.ts';
 
 const STEP_COST=10; // Hypothetical $0.10, included in fixed synthetic work cost; not measured API billing.
 const ACTIONS:Action[]=['READ_CLAIM','READ_EVIDENCE','CHECK_REQUIREMENTS','REQUEST_EVIDENCE','DRAFT_RESPONSE','SUBMIT_TO_MOCK_INSURER','RECHECK_ECONOMICS','ESCALATE','STOP'];
@@ -63,6 +64,7 @@ function finish(s:Session,c:Claim,reason:string,status:Claim['status'],action:Ac
 }
 function failPreflight(s:Session,c:Claim):boolean {
   const r=c.recovery!;
+  if(c.humanRiskHold||c.riskReview?.requiresHuman){captureHumanRiskHold(c);finish(s,c,'HUMAN_RISK_REVIEW','ESCALATED','ESCALATE','Qualitative risk review requires human resolution before further recovery actions. The hold persists until an explicit synthetic case reset.');return true;}
   if(c.expired||c.deadline<'2026-10-24'){finish(s,c,'DEADLINE_EXPIRED','STOPPED');return true;}
   if(!c.transferAuthorized||!c.appealAuthorized||!c.collectionAuthorized){finish(s,c,'AUTHORIZATION_REQUIRED','ESCALATED','ESCALATE');return true;}
   if(c.contradiction){finish(s,c,'EVIDENCE_CONFLICT','ESCALATED','ESCALATE','Conflicting records require human resolution.');return true;}
@@ -134,7 +136,7 @@ export function step(s:Session,id:string,proposal?:AgentProposal){
 export function changeClaim(s:Session,id:string,patch:Partial<Claim>){
   const c=getClaim(s,id);if(c.purchasePrice!==null)throw new Error('Funded economics frozen; use explicit judge scenario controls for recovery shocks.');
   if(Object.keys(patch).some(k=>!['probability','offer','collectible'].includes(k)))throw new Error('Unsupported synthetic claim edit');
-  const next={...c,...patch};assess(next,s.settings);Object.assign(c,next);audit(s,id,'ASSUMPTION_CHANGED','Synthetic underwriting input changed; original offer reevaluated.');
+  const next={...c,...patch,riskMode:patch.probability!==undefined?'manual' as const:c.riskMode};refreshRisk(next);next.riskReview=undefined;assess(next,s.settings);Object.assign(c,next);audit(s,id,'ASSUMPTION_CHANGED',patch.probability!==undefined?'Explicit manual synthetic risk shock overrides the historical frequency; original offer reevaluated.':'Synthetic underwriting input changed; original offer reevaluated.');
 }
 export function chaos(s:Session,id:string,kind:string){
   const c=getClaim(s,id);if(c.recovery?.terminalReason)throw new Error('Reset case before changing a concluded scenario.');
@@ -144,12 +146,14 @@ export function chaos(s:Session,id:string,kind:string){
     case 'repeat':c.repeat=!c.repeat;break;
     case 'conflict':c.contradiction=true;break;
     case 'expired':c.expired=true;c.deadline='2026-10-01';break;
-    case 'negative':c.probability=0;break;
+    case 'negative':c.probability=0;c.riskMode='manual';break;
     case 'specialist':c.specialist=true;break;
     case 'finalDenial':c.finalDenial=true;break;
     case 'responsibility':c.collectible=Math.floor(c.collectible/2);break;
     default:throw new Error('Unknown synthetic scenario control');
   }
+  refreshRisk(c);
+  c.riskReview=undefined;
   if(c.recovery){c.recovery.draft='';c.recovery.draftSources=[];c.recovery.readEvidence=[];}
   audit(s,id,'JUDGE_SCENARIO_CHANGED',`Explicit synthetic control: ${kind}. Ledger preserved.`);
 }
