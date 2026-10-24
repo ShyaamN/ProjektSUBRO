@@ -13,7 +13,7 @@ const signed = (cents: number, decimals = 2) => `${cents > 0 ? '+' : cents < 0 ?
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const probabilityAvailable = (c: Claim, a: Assessment) => c.riskMode === 'manual' || c.riskMode === 'legacy' || a.risk?.status === 'SUPPORTED';
 const probabilityLabel = (c: Claim, a: Assessment) => probabilityAvailable(c, a) ? pct(a.probability) : 'Insufficient data';
-const displayText = (value: string) => value
+displayText = (value: string) => value
   .replace(/FABRICATED DEMO RECORD\.\s*/gi, '')
   .replace(/Training and holdout outcomes are fabricated; their measured fit does not validate real insurer recovery\.?/gi, '')
   .replace(/Its frequency is a synthetic assumption, not clinical validation\./gi, 'Its recovery frequency is an estimate, not a guarantee of payment.')
@@ -261,3 +261,4 @@ function CalibrationPanel() {
   const validation = useMemo(() => riskValidation(), []);
   return <details className="panel risk-calibration"><summary><span><Gauge size={15} />Cohort diagnostics</span><span>{validation.scoredSize} scored holdout outcomes · Brier {validation.brierScore === null ? 'unavailable' : validation.brierScore.toFixed(3)}<ChevronDown size={14} /></span></summary><div className="risk-calibration-body"><p>Compare cohort estimates with a separate holdout set. Brier score measures the squared error of probability estimates; lower values are better.</p><dl className="risk-facts"><div><dt>Total holdout outcomes</dt><dd>{validation.holdoutSize}</dd></div><div><dt>Holdout outcomes with supported cohorts</dt><dd>{validation.scoredSize}</dd></div><div><dt>Brier score · lower is better</dt><dd>{validation.brierScore === null ? 'Unavailable' : validation.brierScore.toFixed(4)}</dd></div></dl><div className="risk-calibration-table"><table><thead><tr><th>Prediction band</th><th>Holdout n</th><th>Mean predicted</th><th>Observed recovery</th></tr></thead><tbody>{validation.calibrationBins.map(bin => <tr key={bin.lower}><td>{pct(bin.lower)}–{pct(bin.upper)}</td><td>{bin.count}</td><td>{bin.predicted === null ? 'No scored outcomes' : pct(bin.predicted)}</td><td>{bin.observed === null ? 'No scored outcomes' : pct(bin.observed)}</td></tr>)}</tbody></table></div><p className="risk-source">Estimator version: {displayText(validation.version)}</p></div></details>;
 }
+
