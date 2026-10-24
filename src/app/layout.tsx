@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'ProjektSUBRO — Claims to capital',
-  description: 'A synthetic underwriting and bounded autonomous claims recovery demonstration.',
+  description: 'Evaluate denied claims, manage clinic offers, and track evidence-led recovery.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
