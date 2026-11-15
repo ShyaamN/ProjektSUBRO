@@ -9,11 +9,12 @@ import type { AuditEvent, CapitalConfig, Claim, LedgerTx, Purchase } from "./typ
 export type View = "trading" | "underwriting" | "capital" | "arena" | "scenarios" | "ledger";
 const DEFAULT_CONFIG: CapitalConfig = { availableCapital: 250000, minContribution: 25, maxInsurerConcentration: 0.35, riskTolerance: "BALANCED", eligibleCategories: "ALL" };
 const KEY = "subro-state-v1";
-const uid = () => Math.random().toString(36).slice(2, 10);
+let counter = 0;
+const uid = () => `id-${++counter}-${Date.now().toString(36)}`;
 const now = () => new Date().toISOString();
 
 interface State { claims: Claim[]; config: CapitalConfig; purchases: Purchase[]; ledger: LedgerTx[]; audit: AuditEvent[]; runs: Record<string, AgentRun>; }
-const initial = (): State => ({ claims: INITIAL_CLAIMS, config: DEFAULT_CONFIG, purchases: [], ledger: [], audit: [{ id: uid(), ts: now(), actor: "SYSTEM", action: "SANDBOX_INITIALIZED", detail: "Synthetic portfolio loaded. All records and transactions are simulated." }], runs: {} });
+const initial = (): State => ({ claims: INITIAL_CLAIMS, config: DEFAULT_CONFIG, purchases: [], ledger: [], audit: [{ id: "audit-init", ts: "2026-11-14T12:00:00.000Z", actor: "SYSTEM", action: "SANDBOX_INITIALIZED", detail: "Synthetic portfolio loaded. All records and transactions are simulated." }], runs: {} });
 
 interface Ctx extends State {
   view: View; setView: (v: View) => void; selectedId: string; select: (id: string) => void;
