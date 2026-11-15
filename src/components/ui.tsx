@@ -21,14 +21,14 @@ export function InfoTip({ text, label = "More info" }: { text: string; label?: s
 
 export function Panel({ title, sub, right, children, className = "" }: { title?: string; sub?: string; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`flex flex-col rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,42,51,0.05)] ${className}`} aria-label={title}>
+    <section className={`flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,42,51,0.05)] ${className}`} aria-label={title}>
       {(title || right) && (
         <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 pb-1">
           <div className="flex items-center gap-1.5">{title && <h2 className="text-[15px] font-semibold text-slate-800">{title}</h2>}{sub && <InfoTip text={sub} label={`More about ${title ?? "this"}`} />}</div>
           {right}
         </header>
       )}
-      <div className="flex min-h-0 flex-1 flex-col px-5 py-4">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4">{children}</div>
     </section>
   );
 }

@@ -36,7 +36,7 @@ function ClaimTab({ claim }: { claim: Claim }) {
 
   return (
     <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,42,51,0.05)]" aria-label={`Claim ${claim.id}`}>
+      <section className="flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,42,51,0.05)]" aria-label={`Claim ${claim.id}`}>
         <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-[17px] font-semibold text-slate-900">{claim.clinic}</h2>
@@ -86,7 +86,7 @@ function ClaimTab({ claim }: { claim: Claim }) {
         </div>
       </section>
 
-      <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,42,51,0.05)]" aria-label={`Log for ${claim.id}`}>
+      <section className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,42,51,0.05)]" aria-label={`Log for ${claim.id}`}>
         <header className="shrink-0 px-5 pt-4 pb-2"><h3 className="text-[15px] font-semibold text-slate-800">Log for this claim</h3><p className="mt-0.5 text-[12px] text-slate-400">{entries.length} entries</p></header>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
           {entries.length === 0 ? <p className="py-6 text-center text-sm text-slate-400">Nothing has happened to this claim yet.</p> : (
@@ -304,7 +304,7 @@ export function Workspace() {
 
         <div className="flex min-h-0 flex-col gap-4">
           {selected && selUw && (
-            <section className="shrink-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,42,51,0.05)]" aria-label="One claim">
+            <section className="min-h-0 shrink overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,42,51,0.05)]" aria-label="One claim">
               <div className="flex items-start justify-between gap-3">
                 <div><h2 className="text-[15px] font-semibold text-slate-900">{selected.clinic}</h2><p className="mono mt-0.5 text-[12px] text-slate-400">{selected.id} · {selected.insurer} · said no {dateFmt(selected.denialDate)}</p></div>
                 <Badge tone={selStage ? stageTone(selStage.key) : "zinc"}>{selStage?.word}</Badge>
