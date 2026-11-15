@@ -1,57 +1,89 @@
 "use client";
-import { Bot, Play, RotateCcw, StepForward } from "lucide-react";
+import { Play, RotateCcw, StepForward } from "lucide-react";
 import { Badge, Bar, Empty, Field, Panel, btnGhost, btnPrimary, inputCls } from "./ui";
 import { MAX_ACTIONS, MAX_SUBMISSIONS } from "@/lib/agent";
 import { money, timeFmt } from "@/lib/format";
+import { agentStatusLabel, toolLabel, validationLabel } from "@/lib/labels";
 import { useSubro } from "@/lib/store";
 
-const statusTone = (s: string) => (s === "RECOVERED" ? "green" : s === "PARTIAL_RECOVERY" ? "teal" : s === "RUNNING" ? "cyan" : s === "NEEDS_EVIDENCE" || s === "NEEDS_HUMAN" ? "amber" : "red") as "green" | "teal" | "cyan" | "amber" | "red";
+const statusTone = (s: string) => (s === "RECOVERED" ? "green" : s === "PARTIAL_RECOVERY" ? "teal" : s === "RUNNING" ? "cyan" : s === "NEEDS_EVIDENCE" || s === "NEEDS_HUMAN" || s === "ESCALATED" ? "amber" : "red") as "green" | "teal" | "cyan" | "amber" | "red";
 
 export function Arena() {
   const { claims, selectedId, select, runs, stepRun, runFull, resetRun, purchases } = useSubro();
   const claim = claims.find((c) => c.id === selectedId) ?? claims[0];
   const run = runs[claim.id];
   const purchased = purchases.find((p) => p.claimId === claim.id);
-  const tools = ["READ_CLAIM", "READ_EVIDENCE", "CHECK_REQUIREMENTS", "REQUEST_EVIDENCE", "DRAFT_RESPONSE", "SUBMIT_TO_MOCK_INSURER", "RECHECK_ECONOMICS", "ESCALATE", "STOP"];
+  const running = run?.status === "RUNNING";
 
   return (
-    <div className="space-y-3">
-      <Panel title="Autonomous Recovery Arena" sub="Bounded agent operations — restricted tool set, server-validatable actions, no database / credential / external-messaging access. Event text is an operational record, not a model reasoning trace." right={<Badge tone="amber">MOCK INSURER ONLY</Badge>}>
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-          <Field label="Claim under recovery"><select className={inputCls} value={claim.id} onChange={(e) => select(e.target.value)}>{claims.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.clinic} · collectible {money(c.collectible)}{purchases.some((p) => p.claimId === c.id) ? " · FINANCED" : ""}</option>)}</select></Field>
+    <div className="space-y-5">
+      <Panel title="Chase one claim" sub="Our helper works through a short list of steps. It checks the papers, writes to the insurer, reads the reply, and checks the numbers again. It stops on its own when there is nothing sensible left to do.">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <Field label="Which claim should it chase?">
+            <select className={inputCls} value={claim.id} onChange={(e) => select(e.target.value)}>{claims.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.clinic} · insurer may owe {money(c.collectible)}{purchases.some((p) => p.claimId === c.id) ? " · we bought this one" : ""}</option>)}</select>
+          </Field>
           <div className="flex flex-wrap gap-2">
-            <button className={btnGhost} onClick={() => stepRun(claim)} disabled={run?.status !== undefined && run.status !== "RUNNING"}><StepForward className="mr-1 inline h-4 w-4" />Step</button>
-            <button className={btnPrimary} onClick={() => runFull(claim)} disabled={run?.status !== undefined && run.status !== "RUNNING"}><Play className="mr-1 inline h-4 w-4" />Run to terminal state</button>
-            <button className={btnGhost} onClick={() => resetRun(claim.id)}><RotateCcw className="mr-1 inline h-4 w-4" />Reset run</button>
+            <button className={btnGhost} onClick={() => stepRun(claim)} disabled={!!run && !running}><StepForward className="mr-1.5 inline h-4 w-4" />Do the next step</button>
+            <button className={btnPrimary} onClick={() => runFull(claim)} disabled={!!run && !running}><Play className="mr-1.5 inline h-4 w-4" />Run it all</button>
+            <button className={btnGhost} onClick={() => resetRun(claim.id)}><RotateCcw className="mr-1.5 inline h-4 w-4" />Start again</button>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">{tools.map((t) => <span key={t} className={`mono rounded-sm border px-1.5 py-0.5 text-[10px] ${run?.events.some((e) => e.tool === t) ? "border-teal-800 bg-teal-950/50 text-teal-300" : "border-[#2b343f] text-zinc-500"}`}>{t}</span>)}</div>
-        {!purchased && <p className="mt-3 rounded-sm border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-[12px] text-amber-200">This claim is not financed. The agent may still be exercised in simulation, but realized amounts will not post to the ledger until a simulated purchase exists.</p>}
+        {!purchased && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2.5 text-sm leading-relaxed text-amber-900">We have not bought this claim yet, so you can still watch the chase, but any money the insurer agrees to pay will only be counted once the claim is bought.</p>}
       </Panel>
 
-      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Panel title="Operational event stream" sub={run ? `${run.events.length} actions · ${run.submissions}/${MAX_SUBMISSIONS} submissions · phase ${run.phase}` : "No run started"}>
-          {!run ? <Empty>No agent run for {claim.id} yet. Step through the workflow or run to a terminal state.</Empty> : (
-            <ol className="space-y-0">{run.events.map((e, i) => <li key={i} className="flex gap-3 border-b border-[#1d232b] py-2.5 last:border-0"><span className="mono w-[74px] shrink-0 pt-0.5 text-[11px] text-zinc-500">{timeFmt(e.ts)}</span><span className={`mono w-[178px] shrink-0 text-[11px] font-semibold ${e.validation === "PASS" ? "text-teal-300" : e.validation === "BLOCKED" ? "text-amber-300" : "text-zinc-300"}`}>{e.tool}</span><div className="min-w-0 flex-1"><p className="text-[12px] leading-relaxed text-zinc-300">{e.detail}</p><p className="mt-0.5 text-[10px] text-zinc-600">validation {e.validation} · cost ${e.cost.toFixed(0)}{e.evidenceRef ? ` · evidence ${e.evidenceRef}` : ""}</p></div></li>)}</ol>
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <Panel title="What happened, step by step" sub={run ? `${run.events.length} steps so far. It can write to the insurer at most ${MAX_SUBMISSIONS} times.` : "Nothing has happened yet."}>
+          {!run ? <Empty>Pick a claim above, then do the first step or run the whole chase.</Empty> : (
+            <ol>
+              {run.events.map((e, i) => (
+                <li key={i} className="flex gap-4 border-b border-slate-100 py-3.5 last:border-0">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-50 text-xs font-semibold text-teal-800">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-800">{toolLabel(e.tool)}</p>
+                      <Badge tone={e.validation === "PASS" ? "green" : e.validation === "BLOCKED" ? "amber" : "zinc"}>{validationLabel(e.validation)}</Badge>
+                      <span className="text-xs text-slate-400">{timeFmt(e.ts)}</span>
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600">{e.detail}</p>
+                    <p className="mt-1 text-xs text-slate-400">This step cost {money(e.cost)}{e.evidenceRef ? ` · Main paper: ${e.evidenceRef}` : ""}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           )}
-          {run?.draft && <div className="mt-3 border border-[#2b343f] bg-[#0d1116] p-3"><div className="mb-1 text-[10px] tracking-wider text-zinc-500 uppercase">Evidence-grounded draft (deterministic — generated text is not a reasoning trace)</div><p className="text-[12px] leading-relaxed text-zinc-300">{run.draft}</p></div>}
+          {run?.draft && (
+            <div className="mt-4 rounded-xl bg-slate-50 p-4">
+              <p className="text-xs font-medium text-slate-500">The letter it wrote to the insurer</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{run.draft}</p>
+              <p className="mt-2 text-xs text-slate-400">Every fact in this letter comes from the papers listed above. Nothing is made up.</p>
+            </div>
+          )}
         </Panel>
 
-        <div className="space-y-3">
-          <Panel title="Run control & safety">
-            <div className="space-y-3 text-[12px]">
-              <div className="flex items-center justify-between"><span className="flex items-center gap-2 text-zinc-400"><Bot className="h-4 w-4 text-teal-400" />Status</span>{run ? <Badge tone={statusTone(run.status)}>{run.status}</Badge> : <Badge>NOT STARTED</Badge>}</div>
-              <div><div className="mb-1 flex justify-between"><span className="text-zinc-500">Operating budget</span><span className="num">${run?.spent.toFixed(0) ?? 0} / ${run?.budget ?? "—"}</span></div><Bar value={run?.spent ?? 0} max={run?.budget ?? 1} tone="bg-cyan-500" /></div>
-              <div><div className="mb-1 flex justify-between"><span className="text-zinc-500">Actions</span><span className="num">{run?.events.length ?? 0} / {MAX_ACTIONS}</span></div><Bar value={run?.events.length ?? 0} max={MAX_ACTIONS} /></div>
-              <dl className="space-y-1.5 border-t border-[#20262e] pt-2.5 text-zinc-400">
-                <div className="flex justify-between"><dt>Submissions</dt><dd className="num text-zinc-100">{run?.submissions ?? 0} / {MAX_SUBMISSIONS}</dd></div>
-                <div className="flex justify-between"><dt>Realized (simulated)</dt><dd className="num text-zinc-100">{money(run?.realized ?? 0)}</dd></div>
-                <div className="flex justify-between"><dt>Insurer response fingerprints</dt><dd className="mono text-[11px] text-zinc-100">{run?.insurerFingerprints.join(", ") || "—"}</dd></div>
+        <div className="space-y-5">
+          <Panel title="Where the chase stands">
+            <div className="space-y-4 text-sm">
+              <div className="flex items-center justify-between gap-3"><span className="text-slate-500">Status</span>{run ? <Badge tone={statusTone(run.status)}>{agentStatusLabel(run.status)}</Badge> : <Badge>Not started</Badge>}</div>
+              <div><div className="mb-1.5 flex justify-between gap-3"><span className="text-slate-500">Steps done</span><span className="num font-medium text-slate-800">{run?.events.length ?? 0} of {MAX_ACTIONS}</span></div><Bar value={run?.events.length ?? 0} max={MAX_ACTIONS} /></div>
+              <div><div className="mb-1.5 flex justify-between gap-3"><span className="text-slate-500">Cost so far</span><span className="num font-medium text-slate-800">{money(run?.spent ?? 0)} of {money(run?.budget ?? 0)}</span></div><Bar value={run?.spent ?? 0} max={run?.budget ?? 1} tone="bg-sky-500" /></div>
+              <dl className="space-y-2 border-t border-slate-100 pt-3">
+                <div className="flex justify-between gap-3"><dt className="text-slate-500">Times it wrote to the insurer</dt><dd className="num font-medium text-slate-800">{run?.submissions ?? 0} of {MAX_SUBMISSIONS}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-slate-500">Money the insurer agreed to pay</dt><dd className="num font-medium text-slate-800">{money(run?.realized ?? 0)}</dd></div>
               </dl>
-              {run?.terminalReason && <p className="border-l-2 border-teal-700 pl-2 leading-relaxed text-zinc-300">{run.terminalReason}</p>}
+              {run?.terminalReason && <p className="rounded-lg bg-teal-50 px-3 py-2.5 leading-relaxed text-teal-900">{run.terminalReason}</p>}
             </div>
           </Panel>
-          <Panel title="Enforced guardrails"><ul className="list-inside space-y-1.5 text-[12px] leading-relaxed text-zinc-400"><li>· Max {MAX_ACTIONS} actions, {MAX_SUBMISSIONS} submissions, hard cost budget</li><li>· Evidence provenance required before drafting</li><li>· Deadline + duplicate-draft + loop / unchanged-response detection</li><li>· Contradictions and authorization gaps escalate to humans</li><li>· Negative expected value terminates the run</li><li>· Missing evidence is requested, never manufactured</li></ul></Panel>
+          <Panel title="Rules it can never break">
+            <ul className="space-y-2 text-sm leading-relaxed text-slate-600">
+              <li>• It stops after {MAX_ACTIONS} steps, so it can never loop forever.</li>
+              <li>• It can write to the insurer at most {MAX_SUBMISSIONS} times.</li>
+              <li>• It can only spend up to the cost limit shown above.</li>
+              <li>• It never makes up a missing paper. It asks for it and waits.</li>
+              <li>• When two papers disagree, a person takes over.</li>
+              <li>• When the deadline has passed, it stops without writing.</li>
+              <li>• When chasing would lose money, it stops. Stopping is a good result, not a failure.</li>
+            </ul>
+          </Panel>
         </div>
       </div>
     </div>

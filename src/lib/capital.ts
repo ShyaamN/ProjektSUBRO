@@ -11,11 +11,11 @@ export function allocatePortfolio(claims: Claim[], config: CapitalConfig, purcha
   const skipped: AllocationPlan["skipped"] = [];
   const candidates: AllocationCandidate[] = [];
   for (const claim of claims) {
-    if (purchasedIds.has(claim.id)) { skipped.push({ claimId: claim.id, reason: "Already financed — duplicate purchase prevented" }); continue; }
-    if (config.eligibleCategories !== "ALL" && !config.eligibleCategories.includes(claim.denialCategory)) { skipped.push({ claimId: claim.id, reason: "Denial category not eligible under current capital policy" }); continue; }
+    if (purchasedIds.has(claim.id)) { skipped.push({ claimId: claim.id, reason: "We already bought this one, so it cannot be bought twice." }); continue; }
+    if (config.eligibleCategories !== "ALL" && !config.eligibleCategories.includes(claim.denialCategory)) { skipped.push({ claimId: claim.id, reason: "You turned this kind of claim off in your rules." }); continue; }
     const uw = underwrite(claim, { minContribution: config.minContribution });
-    if (uw.decision !== "BUY CANDIDATE") { skipped.push({ claimId: claim.id, reason: `Underwriting: ${uw.decision}` }); continue; }
-    if (claim.recoveryProbability < MIN_PROB[config.riskTolerance]) { skipped.push({ claimId: claim.id, reason: `Modeled probability below ${config.riskTolerance} threshold` }); continue; }
+    if (uw.decision !== "BUY CANDIDATE") { skipped.push({ claimId: claim.id, reason: uw.decision === "NEEDS REVIEW" ? "It needs a closer look before anyone buys it." : "We would lose money on it, or time has run out." }); continue; }
+    if (claim.recoveryProbability < MIN_PROB[config.riskTolerance]) { skipped.push({ claimId: claim.id, reason: "The chance of getting paid is lower than your care level allows." }); continue; }
     candidates.push({ claim, advance: uw.advance, expectedCollection: uw.expectedCollection, expectedContribution: uw.expectedContribution, efficiency: uw.advance > 0 ? uw.expectedContribution / uw.advance : 0 });
   }
   candidates.sort((a, b) => b.efficiency - a.efficiency || b.expectedContribution - a.expectedContribution || a.claim.id.localeCompare(b.claim.id));
@@ -25,8 +25,8 @@ export function allocatePortfolio(claims: Claim[], config: CapitalConfig, purcha
   let deployed = alreadyReserved;
   const insurerCap = config.availableCapital * config.maxInsurerConcentration;
   for (const c of candidates) {
-    if (deployed + c.advance > config.availableCapital) { skipped.push({ claimId: c.claim.id, reason: "Insufficient remaining capital" }); continue; }
-    if ((perInsurer[c.claim.insurer] ?? 0) + c.advance > insurerCap) { skipped.push({ claimId: c.claim.id, reason: `Would breach insurer concentration cap (${Math.round(config.maxInsurerConcentration * 100)}% for ${c.claim.insurer})` }); continue; }
+    if (deployed + c.advance > config.availableCapital) { skipped.push({ claimId: c.claim.id, reason: "The money ran out before we got to this one." }); continue; }
+    if ((perInsurer[c.claim.insurer] ?? 0) + c.advance > insurerCap) { skipped.push({ claimId: c.claim.id, reason: `Too much money would sit with ${c.claim.insurer}. Your rules cap it at ${Math.round(config.maxInsurerConcentration * 100)} out of every 100 dollars.` }); continue; }
     selected.push(c); deployed += c.advance; perInsurer[c.claim.insurer] = (perInsurer[c.claim.insurer] ?? 0) + c.advance;
   }
   return {
