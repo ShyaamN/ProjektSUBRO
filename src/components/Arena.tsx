@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Play, RotateCcw, StepForward } from "lucide-react";
-import { Badge, Bar, Empty, Field, Pager, Panel, btnGhost, btnPrimary, inputCls } from "./ui";
+import { Badge, Bar, Empty, Field, InfoTip, Pager, Panel, btnGhost, btnPrimary, inputCls } from "./ui";
 import { MAX_ACTIONS, MAX_SUBMISSIONS } from "@/lib/agent";
 import { money, timeFmt } from "@/lib/format";
 import { agentStatusLabel, toolLabel, validationLabel } from "@/lib/labels";
@@ -13,7 +13,19 @@ const PER_PAGE = 4;
 export function Arena() {
   const { claims, selectedId, select, subtab, runs, stepRun, runFull, resetRun, purchases } = useSubro();
   const [page, setPage] = useState(0);
+  const [aiState, setAi] = useState<{ claimId: string; text: string; note: string; source: string } | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const askAi = async () => {
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/agent/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ claimId: claim.id }) });
+      const data = await res.json();
+      if (res.ok) setAi({ claimId: claim.id, text: data.text, note: data.note, source: data.source }); else setAi({ claimId: claim.id, text: "", note: "The AI helper could not be used just now. The plain letter above still stands.", source: "plain" });
+    } catch { setAi({ claimId: claim.id, text: "", note: "The AI helper could not be reached. The plain letter above still stands.", source: "plain" }); }
+    setAiBusy(false);
+  };
   const claim = claims.find((c) => c.id === selectedId) ?? claims[0];
+  const ai = aiState?.claimId === claim.id ? aiState : null;
   const run = runs[claim.id];
   const purchased = purchases.find((p) => p.claimId === claim.id);
   const running = run?.status === "RUNNING";
@@ -52,7 +64,19 @@ export function Arena() {
             </div>
           </Panel>
           <Panel title="The letter it wrote" sub="Every fact in it comes from the papers on the chase page. Nothing is made up." className="h-full">
-            {run?.draft ? <p className="text-sm leading-relaxed text-slate-700">{run.draft}</p> : <p className="text-sm text-slate-500">No letter yet. Letters appear once the helper has checked the papers and the rules.</p>}
+            {run?.draft ? (
+              <div>
+                <p className="text-sm leading-relaxed text-slate-700">{run.draft}</p>
+                <button className={btnGhost} disabled={aiBusy} onClick={askAi}>{aiBusy ? "Asking the AI helper..." : "Ask the AI helper to polish this letter"}</button>
+                {ai && (
+                  <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                    <p className="flex items-center gap-2 text-xs font-medium text-slate-500">{ai.source === "ai" ? "Polished by the AI helper" : "Plain letter kept"} <InfoTip text="The AI only runs when you press the button, so it spends nothing while you look around. Its reply is checked before it is shown: any dollar figure that does not belong to this claim gets the whole reply thrown away." label="How the AI helper is used" /></p>
+                    {ai.text && ai.source === "ai" && <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{ai.text}</p>}
+                    <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{ai.note}</p>
+                  </div>
+                )}
+              </div>
+            ) : <p className="text-sm text-slate-500">No letter yet. Letters appear once the helper has checked the papers and the rules.</p>}
           </Panel>
           <Panel title="Rules it can never break" className="h-full">
             <ul className="space-y-2 text-sm leading-relaxed text-slate-600">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRun, runToCompletion, stepAgent } from "@/lib/agent";
+import { plainLetter, validateAiLetter } from "@/lib/ai";
 import { actualContribution, allocatePortfolio, applyTx } from "@/lib/capital";
 import { portfolioAnalytics, underwrite } from "@/lib/finance";
 import { evaluateSubmission } from "@/lib/insurer";
@@ -48,6 +49,18 @@ describe("capital allocation & ledger", () => {
   });
   it("actual contribution uses realized, not expected, value (CASE-6077)", () => {
     expect(actualContribution({ claimId: "CASE-6077", advance: 480, expectedCollection: 544, expectedContribution: 16, ts: "", idempotencyKey: "k", status: "SETTLED", realizedCollection: 350 }, 48)).toBe(-178);
+  });
+});
+
+describe("AI letter guardrail", () => {
+  it("plain letter only uses real claim figures", () => {
+    const letter = plainLetter(claim("CASE-1042"));
+    expect(letter).toContain("CASE-1042"); expect(letter).toContain("$500"); expect(validateAiLetter(letter, claim("CASE-1042")).ok).toBe(true);
+  });
+  it("any invented dollar figure gets the AI reply thrown away", () => {
+    const invented = `Dear insurer, about claim CASE-1042 we are owed $9,999 in total and ask you to pay it at once please.`;
+    expect(validateAiLetter(invented, claim("CASE-1042")).ok).toBe(false);
+    expect(validateAiLetter("Short.", claim("CASE-1042")).ok).toBe(false);
   });
 });
 

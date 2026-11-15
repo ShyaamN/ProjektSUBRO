@@ -1,5 +1,5 @@
 export async function GET() {
-  const llmConfigured = Boolean(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
+  const llmConfigured = Boolean(process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
   return Response.json({
     status: "ok",
     llmConfigured,
