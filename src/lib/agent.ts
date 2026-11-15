@@ -45,7 +45,7 @@ export function stepAgent(prev: AgentRun, claim: Claim): AgentRun {
     }
     case "EVIDENCE": {
       const contradictory = claim.evidence.find((e) => e.status === "CONTRADICTORY");
-      let r = push(prev, "READ_EVIDENCE", `Inspected ${claim.evidence.length} evidence record(s): ${claim.evidence.map((e) => `${e.id} [${e.status}] ${e.type}`).join("; ")}`, contradictory ? "BLOCKED" : "PASS", claim.requiredEvidenceId);
+      const r = push(prev, "READ_EVIDENCE", `Inspected ${claim.evidence.length} evidence record(s): ${claim.evidence.map((e) => `${e.id} [${e.status}] ${e.type}`).join("; ")}`, contradictory ? "BLOCKED" : "PASS", claim.requiredEvidenceId);
       if (contradictory) return terminate(r, "NEEDS_HUMAN", "ESCALATE", `Contradictory evidence (${contradictory.id}: ${contradictory.note ?? "conflicting record"}). The agent will not choose the more favorable record — human reconciliation required.`);
       return { ...r, phase: "REQUIREMENTS" };
     }
@@ -84,7 +84,7 @@ export function stepAgent(prev: AgentRun, claim: Claim): AgentRun {
     case "RECHECK": {
       const uw = underwrite(claim, {});
       const actualSoFar = Math.round((prev.realized - uw.advance - prev.spent - COSTS.RECHECK_ECONOMICS) * 100) / 100;
-      let r = push(prev, "RECHECK_ECONOMICS", prev.realized > 0 ? `Realized (simulated) $${prev.realized.toLocaleString()} · advance $${uw.advance.toLocaleString()} · operating spend $${(prev.spent + COSTS.RECHECK_ECONOMICS).toFixed(0)} · modeled expected contribution was $${uw.expectedContribution.toLocaleString()}.` : `Reassessed economics after rejection: expected contribution $${uw.expectedContribution.toLocaleString()}, spent $${(prev.spent + COSTS.RECHECK_ECONOMICS).toFixed(0)}.`, "PASS");
+      const r = push(prev, "RECHECK_ECONOMICS", prev.realized > 0 ? `Realized (simulated) $${prev.realized.toLocaleString()} · advance $${uw.advance.toLocaleString()} · operating spend $${(prev.spent + COSTS.RECHECK_ECONOMICS).toFixed(0)} · modeled expected contribution was $${uw.expectedContribution.toLocaleString()}.` : `Reassessed economics after rejection: expected contribution $${uw.expectedContribution.toLocaleString()}, spent $${(prev.spent + COSTS.RECHECK_ECONOMICS).toFixed(0)}.`, "PASS");
       if (prev.realized > 0) return terminate(r, prev.realized >= claim.collectible ? "RECOVERED" : "PARTIAL_RECOVERY", "STOP", prev.realized >= claim.collectible ? `Recovered in simulation: $${prev.realized.toLocaleString()} realized (not a real collection). Actual contribution vs advance/expenses: $${actualSoFar.toLocaleString()}.` : `Partial simulated recovery $${prev.realized.toLocaleString()} of $${claim.collectible.toLocaleString()} collectible. Ledger records realized, not expected, value.`);
       if (uw.expectedContribution < 0) return terminate(r, "TERMINATED", "STOP", "Negative expected value after reassessment — stopping is the correct outcome.");
       return { ...r, phase: "DRAFT" };

@@ -33,6 +33,8 @@ export function SubroProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const settledRef = useRef<Set<string>>(new Set());
 
+  // Hydration from browser storage must happen after mount to keep server/client markup identical.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { try { const raw = localStorage.getItem(KEY); if (raw) { const p = JSON.parse(raw) as State; if (p.claims?.length >= 100) { setState(p); Object.keys(p.runs ?? {}).forEach((k) => { if (p.runs[k].status !== "RUNNING") settledRef.current.add(k); }); } } } catch { /* corrupted storage falls back to seed */ } setHydrated(true); }, []);
   useEffect(() => { if (hydrated) try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage unavailable */ } }, [state, hydrated]);
 
@@ -56,13 +58,11 @@ export function SubroProvider({ children }: { children: ReactNode }) {
     return { s: audit({ ...s, purchases: [...s.purchases, purchase], ledger }, "OFFER_ACCEPTED", message), ok: true, message };
   }, [audit]);
 
-  const acceptOfferRef = useRef<(c: Claim, a?: number) => { ok: boolean; message: string }>(() => ({ ok: false, message: "Not ready" }));
   const acceptOffer = useCallback((claim: Claim, advanceOverride?: number) => {
     let result = { ok: false, message: "Rejected" };
     setState((s) => { const r = tryAccept(s, claim, advanceOverride); result = { ok: r.ok, message: r.message }; return r.s; });
     return result;
   }, [tryAccept]);
-  acceptOfferRef.current = acceptOffer;
 
   const acceptMany = useCallback((claims: Claim[]) => {
     let accepted = 0; const messages: string[] = [];

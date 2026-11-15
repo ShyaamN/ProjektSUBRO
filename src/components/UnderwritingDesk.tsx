@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Badge, Field, Kpi, Panel, btnPrimary, inputCls } from "./ui";
 import { decisionTone } from "./ClaimDetail";
@@ -8,10 +8,16 @@ import { money, moneySigned, pct } from "@/lib/format";
 import { useSubro } from "@/lib/store";
 
 export function UnderwritingDesk() {
+  const { claims, selectedId } = useSubro();
+  const claim = claims.find((c) => c.id === selectedId) ?? claims[0];
+  // Remount the desk per claim so pricing inputs initialize from that claim's file.
+  return <DeskInner key={claim.id} />;
+}
+
+function DeskInner() {
   const { claims, selectedId, select, updateProbability, acceptOffer, purchases, config } = useSubro();
   const claim = claims.find((c) => c.id === selectedId) ?? claims[0];
   const [prob, setProb] = useState(claim.recoveryProbability); const [advance, setAdvance] = useState(Math.round(claim.collectible * 0.6)); const [cost, setCost] = useState(claim.estimatedCost); const [min, setMin] = useState(config.minContribution); const [msg, setMsg] = useState("");
-  useEffect(() => { setProb(claim.recoveryProbability); setAdvance(Math.round(claim.collectible * 0.6)); setCost(claim.estimatedCost); }, [claim.id, claim.recoveryProbability, claim.collectible, claim.estimatedCost]);
   const uw = useMemo(() => underwrite(claim, { probability: prob, advance, cost, minContribution: min }), [claim, prob, advance, cost, min]);
   const purchased = purchases.some((p) => p.claimId === claim.id);
 
