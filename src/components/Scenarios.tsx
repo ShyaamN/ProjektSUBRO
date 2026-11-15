@@ -1,6 +1,6 @@
 "use client";
 import { Play, RotateCcw } from "lucide-react";
-import { Badge, Panel, btnGhost, btnPrimary } from "./ui";
+import { Badge, InfoTip, Panel, btnGhost, btnPrimary } from "./ui";
 import { underwrite } from "@/lib/finance";
 import { money } from "@/lib/format";
 import { agentStatusLabel, decisionLabel, decisionTone } from "@/lib/labels";
@@ -53,7 +53,7 @@ export function Scenarios() {
             );
           })}
         </div>
-        <p className="mt-4 text-sm text-slate-400">The Start fresh button at the top wipes everything and puts all 120 claims back how they started.</p>
+        <p className="mt-4 flex items-center gap-1.5 text-sm text-slate-400">Changed your mind about a run? <InfoTip text="The Start fresh button at the top wipes everything and puts all 120 claims back how they started, so you can run any story again from zero." label="About starting fresh" /></p>
       </Panel>
     </div>
   );

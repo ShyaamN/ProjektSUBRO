@@ -1,6 +1,6 @@
 "use client";
 import { Play, RotateCcw, StepForward } from "lucide-react";
-import { Badge, Bar, Empty, Field, Panel, btnGhost, btnPrimary, inputCls } from "./ui";
+import { Badge, Bar, Empty, Field, InfoTip, Panel, btnGhost, btnPrimary, inputCls } from "./ui";
 import { MAX_ACTIONS, MAX_SUBMISSIONS } from "@/lib/agent";
 import { money, timeFmt } from "@/lib/format";
 import { agentStatusLabel, toolLabel, validationLabel } from "@/lib/labels";
@@ -53,9 +53,8 @@ export function Arena() {
           )}
           {run?.draft && (
             <div className="mt-4 rounded-xl bg-slate-50 p-4">
-              <p className="text-xs font-medium text-slate-500">The letter it wrote to the insurer</p>
+              <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500">The letter it wrote to the insurer <InfoTip text="Every fact in this letter comes from the papers listed above it. Nothing is made up, and nothing is added to sound persuasive." label="About this letter" /></p>
               <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{run.draft}</p>
-              <p className="mt-2 text-xs text-slate-400">Every fact in this letter comes from the papers listed above. Nothing is made up.</p>
             </div>
           )}
         </Panel>

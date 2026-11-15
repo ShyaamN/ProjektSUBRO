@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Badge, Empty, Kpi, Panel, inputCls } from "./ui";
+import { Badge, Empty, InfoTip, Kpi, Panel, inputCls } from "./ui";
 import { actualContribution } from "@/lib/capital";
 import { money, timeFmt } from "@/lib/format";
 import { auditLabel, purchaseLabel, txLabel } from "@/lib/labels";
@@ -42,7 +42,7 @@ export function LedgerView() {
                 </table>
               </div>
             )}
-            <p className="mt-3 text-sm text-slate-400">Money we can still spend is simple: what we started with, minus money out, plus money in.</p>
+            <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-400">How the top number is worked out <InfoTip text="Money we can still spend is simple: what we started with, minus money out, plus money in. It is checked against every row in this list." label="How the top number is worked out" /></p>
           </Panel>
 
           <Panel title="How each bought claim turned out" sub="The real result only appears once a chase has finished, and it is worked out from money that really came in.">

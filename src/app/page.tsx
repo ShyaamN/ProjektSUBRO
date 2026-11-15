@@ -6,6 +6,7 @@ import { LedgerView } from "@/components/LedgerView";
 import { Scenarios } from "@/components/Scenarios";
 import { TradingFloor } from "@/components/TradingFloor";
 import { UnderwritingDesk } from "@/components/UnderwritingDesk";
+import { InfoTip } from "@/components/ui";
 import { money } from "@/lib/format";
 import { SubroProvider, useSubro, type View } from "@/lib/store";
 
@@ -41,9 +42,9 @@ function Shell() {
       <div className="min-w-0">
         <header className="border-b border-slate-200 bg-white">
           <div className="mx-auto flex max-w-[1280px] flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-5 md:px-6">
-            <div>
+            <div className="flex items-center gap-2">
               <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">{current.label}</h1>
-              <p className="mt-0.5 text-sm text-slate-500">{current.intro}</p>
+              <InfoTip text={current.intro} label={`What is ${current.label}?`} />
             </div>
             <p className="ml-auto text-sm text-slate-500">Money we can still spend <span className="ml-1 text-base font-semibold text-teal-800">{money(reconciliation.available)}</span></p>
           </div>
@@ -55,7 +56,7 @@ function Shell() {
           {view === "arena" && <Arena />}
           {view === "scenarios" && <Scenarios />}
           {view === "ledger" && <LedgerView />}
-          <footer className="mt-10 pb-4 text-[12.5px] text-slate-400">All amounts are in dollars. Guesses are marked as guesses, so they are never mixed up with money that has really come in.</footer>
+          <footer className="mt-10 flex items-center gap-1.5 pb-4 text-[12.5px] text-slate-400">All amounts are in dollars. <InfoTip text="Guesses are marked as guesses, so they are never mixed up with money that has really come in." label="About guesses and real money" /></footer>
         </main>
       </div>
     </div>

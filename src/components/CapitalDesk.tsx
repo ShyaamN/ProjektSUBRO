@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Badge, Bar, Field, Kpi, Panel, btnPrimary, inputCls } from "./ui";
+import { Badge, Bar, Field, InfoTip, Kpi, Panel, btnPrimary, inputCls } from "./ui";
 import { allocatePortfolio } from "@/lib/capital";
 import { money, pct } from "@/lib/format";
 import { categoryLabel, purchaseLabel } from "@/lib/labels";
@@ -38,9 +38,8 @@ export function CapitalDesk() {
               <Field label="Money we can spend in total ($)" help="Once this runs out, no more claims can be bought."><input className={inputCls} type="number" min={0} value={s.config.availableCapital} onChange={(e) => set({ availableCapital: Number(e.target.value) })} /></Field>
               <Field label="Least gain we accept per claim ($)" help="Claims expected to gain less than this stay off the list."><input className={inputCls} type="number" value={s.config.minContribution} onChange={(e) => set({ minContribution: Number(e.target.value) })} /></Field>
               <div>
-                <div className="mb-1.5 flex justify-between gap-3 text-sm"><span className="font-medium text-slate-700">Biggest share that can sit with one insurer</span><span className="font-semibold text-teal-800">{pct(s.config.maxInsurerConcentration, 0)}</span></div>
+                <div className="mb-1.5 flex justify-between gap-3 text-sm"><span className="flex items-center gap-1.5 font-medium text-slate-700">Biggest share that can sit with one insurer <InfoTip text="This stops us putting too much money on one insurer paying up. If that insurer keeps saying no, only this share of the money is at risk." label="Why this limit exists" /></span><span className="font-semibold text-teal-800">{pct(s.config.maxInsurerConcentration, 0)}</span></div>
                 <input aria-label="Biggest share with one insurer" type="range" min={0.05} max={1} step={0.05} value={s.config.maxInsurerConcentration} onChange={(e) => set({ maxInsurerConcentration: Number(e.target.value) })} className="w-full" />
-                <p className="mt-1.5 text-xs leading-relaxed text-slate-400">This stops us putting too much money on one insurer paying up.</p>
               </div>
               <Field label="How careful should we be?" help={CARE_WORDS[s.config.riskTolerance].help}>
                 <select className={inputCls} value={s.config.riskTolerance} onChange={(e) => set({ riskTolerance: e.target.value as CapitalConfig["riskTolerance"] })}>{(Object.keys(CARE_WORDS) as CapitalConfig["riskTolerance"][]).map((k) => <option key={k} value={k}>{CARE_WORDS[k].label}</option>)}</select>

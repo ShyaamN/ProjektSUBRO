@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
-import { Badge, Field, Kpi, Panel, btnPrimary, inputCls } from "./ui";
+import { Badge, Field, InfoTip, Kpi, Panel, btnPrimary, inputCls } from "./ui";
 import { underwrite } from "@/lib/finance";
 import { money, pct } from "@/lib/format";
 import { decisionLabel, decisionTone } from "@/lib/labels";
@@ -34,7 +34,7 @@ function DeskInner() {
         <div className="mt-5 space-y-5">
           <div>
             <div className="mb-1.5 flex items-center justify-between gap-3">
-              <label htmlFor="chance" className="text-sm font-medium text-slate-700">Chance we get paid</label>
+              <label htmlFor="chance" className="flex items-center gap-1.5 text-sm font-medium text-slate-700">Chance we get paid <InfoTip text="This is our best guess, not a promise. Try 50 to see how fast a good deal can turn bad. Save this guess and the claims page uses it too." label="About this guess" /></label>
               <span className="num text-sm font-semibold text-teal-800">{pct(prob, 0)}</span>
             </div>
             <input id="chance" type="range" min={0} max={1} step={0.01} value={prob} onChange={(e) => setProb(Number(e.target.value))} className="w-full" aria-label="Chance we get paid" />
@@ -42,7 +42,6 @@ function DeskInner() {
               <input aria-label="Chance as a number out of 100" className={inputCls} type="number" min={0} max={100} value={Math.round(prob * 100)} onChange={(e) => setProb(Math.min(100, Math.max(0, Number(e.target.value))) / 100)} />
               <button className={btnPrimary} onClick={() => { updateProbability(claim.id, prob); setMsg("Saved. The claims page now uses this guess too."); }}>Save this guess</button>
             </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-slate-400">This is our best guess, not a promise. Try 50 to see how fast a good deal can turn bad.</p>
           </div>
           <Field label="We pay the clinic now ($)" help="This is the price of buying the claim from the clinic."><input className={inputCls} type="number" min={0} value={payNow} onChange={(e) => setPayNow(Number(e.target.value))} /></Field>
           <Field label="Cost to chase it ($)" help="Letters, calls, staff time, and fees while we chase the insurer."><input className={inputCls} type="number" min={0} value={cost} onChange={(e) => setCost(Number(e.target.value))} /></Field>

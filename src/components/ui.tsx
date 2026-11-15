@@ -1,11 +1,30 @@
-import type { ReactNode } from "react";
+"use client";
+import { useState, type ReactNode } from "react";
+import { Info } from "lucide-react";
+
+/** Small info button. The explanation stays hidden until the reader asks for it. */
+export function InfoTip({ text, label = "More info" }: { text: string; label?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex align-middle">
+      <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen((v) => !v)} className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border border-slate-300 text-slate-400 transition hover:border-teal-600 hover:text-teal-700">
+        <Info className="h-3 w-3" />
+      </button>
+      {open && (
+        <span role="note" className="absolute top-6 left-0 z-30 block w-64 rounded-lg border border-slate-200 bg-white p-3 text-[12.5px] leading-relaxed font-normal text-slate-600 shadow-lg">
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
 
 export function Panel({ title, sub, right, children, className = "" }: { title?: string; sub?: string; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={`rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,42,51,0.05)] ${className}`} aria-label={title}>
       {(title || right) && (
         <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 pb-1">
-          <div>{title && <h2 className="text-[15px] font-semibold text-slate-800">{title}</h2>}{sub && <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-slate-500">{sub}</p>}</div>
+          <div className="flex items-center gap-1.5">{title && <h2 className="text-[15px] font-semibold text-slate-800">{title}</h2>}{sub && <InfoTip text={sub} label={`More about ${title ?? "this"}`} />}</div>
           {right}
         </header>
       )}
@@ -17,9 +36,8 @@ export function Panel({ title, sub, right, children, className = "" }: { title?:
 export function Kpi({ label, value, hint, tone = "text-slate-900" }: { label: string; value: string; hint?: string; tone?: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(16,42,51,0.05)]">
-      <div className="text-[13px] text-slate-500">{label}</div>
+      <div className="flex items-center gap-1.5 text-[13px] text-slate-500">{label}{hint && <InfoTip text={hint} label={`More about ${label}`} />}</div>
       <div className={`mt-1.5 text-[26px] leading-none font-semibold tracking-tight ${tone}`}>{value}</div>
-      {hint && <div className="mt-2 text-[12.5px] leading-relaxed text-slate-500">{hint}</div>}
     </div>
   );
 }
@@ -46,7 +64,7 @@ export function Empty({ children }: { children: ReactNode }) {
 }
 
 export function Field({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
-  return <label className="block"><span className="mb-1.5 block text-[13px] font-medium text-slate-700">{label}</span>{children}{help && <span className="mt-1.5 block text-[12px] leading-relaxed text-slate-500">{help}</span>}</label>;
+  return <label className="block"><span className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-slate-700">{label}{help && <InfoTip text={help} label={`More about ${label}`} />}</span>{children}</label>;
 }
 export const inputCls = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400";
 export const btnPrimary = "rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-40";
