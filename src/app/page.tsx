@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Activity, BookOpen, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Coins, FolderOpen, Sparkles } from "lucide-react";
+import { Activity, BookOpen, Bot, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Coins, FolderOpen, Sparkles } from "lucide-react";
 import { Arena } from "@/components/Arena";
+import { Autopilot } from "@/components/Autopilot";
 import { CapitalDesk } from "@/components/CapitalDesk";
 import { LedgerView } from "@/components/LedgerView";
 import { Scenarios } from "@/components/Scenarios";
@@ -17,6 +18,7 @@ const NAV: { id: View; label: string; icon: typeof FolderOpen; intro: string }[]
   { id: "underwriting", label: "Decide", icon: ClipboardCheck, intro: "Should we buy this claim? The numbers, in plain words." },
   { id: "capital", label: "Buy claims", icon: Coins, intro: "Pick the claims worth buying with the money we have." },
   { id: "arena", label: "Chase a claim", icon: Activity, intro: "Watch the helper chase a claim, step by step." },
+  { id: "autopilot", label: "Auto helper", icon: Bot, intro: "Hand the whole job over: it decides, buys, chases, and logs everything it does." },
   { id: "scenarios", label: "Examples", icon: Sparkles, intro: "Ready made stories that show how it all works." },
   { id: "ledger", label: "Money in and out", icon: BookOpen, intro: "Every dollar that went out and came back, in one place." },
 ];
@@ -94,6 +96,7 @@ function Shell() {
           {view === "underwriting" && <UnderwritingDesk />}
           {view === "capital" && <CapitalDesk />}
           {view === "arena" && <Arena />}
+          {view === "autopilot" && <Autopilot />}
           {view === "scenarios" && <Scenarios />}
           {view === "ledger" && <LedgerView />}
         </main>

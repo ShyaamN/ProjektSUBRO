@@ -21,6 +21,10 @@ export const SECTIONS: Record<View, SectionDef[]> = {
     { id: "chase", label: "The chase" },
     { id: "standing", label: "Where it stands" },
   ],
+  autopilot: [
+    { id: "run", label: "Run it" },
+    { id: "log", label: "Log" },
+  ],
   scenarios: [
     { id: "first", label: "Stories 1 to 3" },
     { id: "second", label: "Stories 4 to 6" },
