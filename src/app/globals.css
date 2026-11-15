@@ -7,7 +7,7 @@
 
 :root { --background: #f4f6f6; --foreground: #1c2b33; }
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 body { background: #f4f6f6; color: #1c2b33; font-family: var(--font-geist-sans), Inter, system-ui, sans-serif; }
 ::selection { background: #cdeee6; color: #0b3b34; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }

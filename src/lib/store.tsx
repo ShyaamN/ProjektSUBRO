@@ -18,7 +18,7 @@ interface State { claims: Claim[]; config: CapitalConfig; purchases: Purchase[];
 const initial = (): State => ({ claims: INITIAL_CLAIMS, config: DEFAULT_CONFIG, purchases: [], ledger: [], audit: [{ id: "audit-init", ts: "2026-11-14T12:00:00.000Z", actor: "SYSTEM", action: "DEMO_STARTED", detail: "The demo is ready. Pick a claim to get started." }], runs: {} });
 
 interface Ctx extends State {
-  view: View; setView: (v: View) => void; selectedId: string; select: (id: string) => void;
+  view: View; setView: (v: View) => void; subtab: string; setSubtab: (s: string) => void; selectedId: string; select: (id: string) => void;
   setConfig: (c: CapitalConfig) => void; updateProbability: (id: string, p: number) => void;
   acceptOffer: (claim: Claim, advanceOverride?: number) => { ok: boolean; message: string };
   acceptMany: (claims: Claim[]) => { accepted: number; message: string };
@@ -29,7 +29,9 @@ const C = createContext<Ctx | null>(null);
 
 export function SubroProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(initial);
-  const [view, setView] = useState<View>("trading");
+  const [view, setViewState] = useState<View>("trading");
+  const [subtab, setSubtab] = useState("glance");
+  const setView = useCallback((v: View) => { setViewState(v); }, []);
   const [selectedId, select] = useState("CASE-1042");
   const [hydrated, setHydrated] = useState(false);
   const settledRef = useRef<Set<string>>(new Set());
@@ -88,10 +90,10 @@ export function SubroProvider({ children }: { children: ReactNode }) {
   const stepRun = useCallback((claim: Claim) => setState((s) => { const run = s.runs[claim.id] ?? createRun(claim); const next = stepAgent(run, claim); return settleTerminal({ ...s, runs: { ...s.runs, [claim.id]: next } }, next); }), [settleTerminal]);
   const runFull = useCallback((claim: Claim) => setState((s) => { let run = s.runs[claim.id] ?? createRun(claim); let g = 0; while (run.status === "RUNNING" && g++ < 20) run = stepAgent(run, claim); return settleTerminal({ ...s, runs: { ...s.runs, [claim.id]: run } }, run); }), [settleTerminal]);
   const resetRun = useCallback((id: string) => { settledRef.current.delete(id); setState((s) => ({ ...s, runs: Object.fromEntries(Object.entries(s.runs).filter(([k]) => k !== id)) })); }, []);
-  const resetAll = useCallback(() => { settledRef.current.clear(); try { localStorage.removeItem(KEY); } catch {} setState(initial()); select("CASE-1042"); setView("trading"); }, []);
+  const resetAll = useCallback(() => { settledRef.current.clear(); try { localStorage.removeItem(KEY); } catch {} setState(initial()); select("CASE-1042"); setView("trading"); setSubtab("glance"); }, [setView]);
 
   const reconciliation = useMemo(() => reconcile(state.config.availableCapital, state.ledger, state.purchases), [state]);
-  const value: Ctx = { ...state, view, setView, selectedId, select, setConfig, updateProbability, acceptOffer, acceptMany, stepRun, runFull, resetRun, resetAll, reconciliation, hydrated };
+  const value: Ctx = { ...state, view, setView, subtab, setSubtab, selectedId, select, setConfig, updateProbability, acceptOffer, acceptMany, stepRun, runFull, resetRun, resetAll, reconciliation, hydrated };
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 export function useSubro() { const v = useContext(C); if (!v) throw new Error("useSubro outside provider"); return v; }
