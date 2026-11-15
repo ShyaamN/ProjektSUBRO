@@ -36,7 +36,7 @@ function Shell() {
           <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">Turn denied claims into money.</p>
         </div>
         <nav aria-label="Main menu" className="min-h-0 flex-1 overflow-hidden px-3 pb-4">
-          <div className="flex gap-1 overflow-x-auto lg:block lg:space-y-1 lg:overflow-visible">
+          <div className="flex flex-wrap gap-1 lg:block lg:space-y-1">
             {NAV.map((n) => {
               const active = view === n.id;
               return (
