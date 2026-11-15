@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { Badge, Bar, Kpi, Pager, Panel, inputCls } from "./ui";
+import { Badge, Bar, Kpi, Pager, Panel, inputCls, useFitRows } from "./ui";
 import { ClaimDetail } from "./ClaimDetail";
 import { portfolioAnalytics, underwrite } from "@/lib/finance";
 import { compact, money, pct } from "@/lib/format";
@@ -9,19 +9,18 @@ import { categoryLabel, decisionLabel, decisionTone } from "@/lib/labels";
 import { DENIAL_CATEGORIES, INSURERS } from "@/lib/seed";
 import { useSubro } from "@/lib/store";
 
-const PER_PAGE = 9;
-
 export function TradingFloor() {
   const { claims, selectedId, select, setSubtab, subtab, reconciliation, config } = useSubro();
+  const { ref: tableRef, rows: perPage } = useFitRows<HTMLDivElement>(56, 40, 4, 14);
   const [q, setQ] = useState(""); const [insurer, setInsurer] = useState("ALL"); const [cat, setCat] = useState("ALL"); const [verdict, setVerdict] = useState("ALL"); const [sort, setSort] = useState("collectible");
   const [page, setPage] = useState(0);
   const a = useMemo(() => portfolioAnalytics(claims, config.minContribution), [claims, config.minContribution]);
   const rows = useMemo(() => claims.map((c) => ({ c, uw: underwrite(c, { minContribution: config.minContribution }) }))
     .filter(({ c, uw }) => (!q || `${c.id} ${c.clinic} ${c.insurer} ${c.denialReason}`.toLowerCase().includes(q.toLowerCase())) && (insurer === "ALL" || c.insurer === insurer) && (cat === "ALL" || c.denialCategory === cat) && (verdict === "ALL" || uw.decision === verdict))
     .sort((x, y) => sort === "collectible" ? y.c.collectible - x.c.collectible : sort === "expected" ? y.uw.expectedCollection - x.uw.expectedCollection : sort === "probability" ? y.c.recoveryProbability - x.c.recoveryProbability : x.c.deadline.localeCompare(y.c.deadline)), [claims, q, insurer, cat, verdict, sort, config.minContribution]);
-  const pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
+  const pages = Math.max(1, Math.ceil(rows.length / perPage));
   const safePage = Math.min(page, pages - 1);
-  const pageRows = rows.slice(safePage * PER_PAGE, safePage * PER_PAGE + PER_PAGE);
+  const pageRows = rows.slice(safePage * perPage, safePage * perPage + perPage);
   const selected = claims.find((c) => c.id === selectedId) ?? claims[0];
   const maxInsurer = Math.max(...a.byInsurer.map((x) => x.value), 1);
   const maxCategory = Math.max(...a.byCategory.map((x) => x.value), 1);
@@ -32,24 +31,25 @@ export function TradingFloor() {
   if (subtab === "list") return (
     <div className="flex h-full min-h-0 flex-col">
       <Panel title="All claims" sub="Pick any row to open the full story of that claim." className="flex min-h-0 flex-1 flex-col" right={<Pager page={safePage} pages={pages} onPage={setPage} />}>
-        <div className="mb-3 grid shrink-0 gap-2 md:grid-cols-[1fr_170px_210px_170px_190px]">
-          <div className="relative"><Search className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" /><input aria-label="Search claims" className={`${inputCls} pl-9`} placeholder="Search by clinic, insurer, or claim number" value={q} onChange={(e) => changeFilter(() => setQ(e.target.value))} /></div>
+        <div className="mb-3 grid shrink-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="relative sm:col-span-2 xl:col-span-4"><Search className="absolute top-2.5 left-3 h-4 w-4 text-slate-400" /><input aria-label="Search claims" className={`${inputCls} pl-9`} placeholder="Search by clinic, insurer, or claim number" value={q} onChange={(e) => changeFilter(() => setQ(e.target.value))} /></div>
           <select aria-label="Filter by insurer" className={inputCls} value={insurer} onChange={(e) => changeFilter(() => setInsurer(e.target.value))}><option value="ALL">All insurers</option>{INSURERS.map((x) => <option key={x}>{x}</option>)}</select>
           <select aria-label="Filter by reason" className={inputCls} value={cat} onChange={(e) => changeFilter(() => setCat(e.target.value))}><option value="ALL">All reasons</option>{DENIAL_CATEGORIES.map((x) => <option key={x} value={x}>{categoryLabel(x)}</option>)}</select>
           <select aria-label="Filter by verdict" className={inputCls} value={verdict} onChange={(e) => changeFilter(() => setVerdict(e.target.value))}><option value="ALL">All verdicts</option><option value="BUY CANDIDATE">Worth buying</option><option value="NEEDS REVIEW">Needs a closer look</option><option value="DECLINE">Skip it</option></select>
-          <select aria-label="Sort claims" className={inputCls} value={sort} onChange={(e) => changeFilter(() => setSort(e.target.value))}><option value="collectible">Biggest amount first</option><option value="expected">Biggest expected amount first</option><option value="probability">Best chance first</option><option value="deadline">Soonest deadline first</option></select>
+          <select aria-label="Sort claims" className={inputCls} value={sort} onChange={(e) => changeFilter(() => setSort(e.target.value))}><option value="collectible">Biggest first</option><option value="expected">Expected biggest</option><option value="probability">Best chance first</option><option value="deadline">Deadline soonest</option></select>
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr>{["Claim", "Clinic and insurer", "Why it was turned down", "Insurer may owe", "Chance we get paid", "Verdict"].map((h, i) => <th key={h} className={`px-4 py-2.5 font-medium ${i >= 3 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+        <div ref={tableRef} className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200">
+          <table className="w-full table-fixed text-sm">
+            <colgroup><col className="w-[11%]" /><col className="w-[24%]" /><col className="w-[27%]" /><col className="w-[13%]" /><col className="w-[12%]" /><col className="w-[13%]" /></colgroup>
+            <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr>{["Claim", "Clinic and insurer", "Why it was turned down", "Insurer may owe", "Chance we get paid", "Verdict"].map((h, i) => <th key={h} className={`truncate px-3 py-2.5 font-medium ${i >= 3 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
             <tbody>{pageRows.map(({ c, uw }) => (
               <tr key={c.id} onClick={() => { select(c.id); setSubtab("one"); }} className={`cursor-pointer border-t border-slate-100 hover:bg-teal-50/60 ${c.id === selectedId ? "bg-teal-50" : ""}`}>
-                <td className="mono px-4 py-2.5 text-[13px] font-medium text-teal-800">{c.id}</td>
-                <td className="px-4 py-2.5 text-slate-700">{c.clinic}<span className="block text-xs text-slate-400">{c.insurer}</span></td>
-                <td className="max-w-[230px] px-4 py-2.5 text-slate-500">{c.denialReason}</td>
-                <td className="num px-4 py-2.5 font-medium text-slate-900">{money(c.collectible)}</td>
-                <td className="num px-4 py-2.5 text-slate-600">{pct(c.recoveryProbability, 0)}</td>
-                <td className="px-4 py-2.5 text-right"><Badge tone={decisionTone(uw.decision)}>{decisionLabel(uw.decision)}</Badge></td>
+                <td className="mono truncate px-3 py-2 text-[13px] font-medium text-teal-800">{c.id}</td>
+                <td className="px-3 py-2 text-slate-700"><span className="block truncate">{c.clinic}</span><span className="block truncate text-xs text-slate-400">{c.insurer}</span></td>
+                <td className="truncate px-3 py-2 text-slate-500">{c.denialReason}</td>
+                <td className="num px-3 py-2 font-medium text-slate-900">{money(c.collectible)}</td>
+                <td className="num px-3 py-2 text-slate-600">{pct(c.recoveryProbability, 0)}</td>
+                <td className="px-3 py-2 text-right"><Badge tone={decisionTone(uw.decision)}>{decisionLabel(uw.decision)}</Badge></td>
               </tr>))}
             </tbody>
           </table>

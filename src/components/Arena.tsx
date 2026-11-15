@@ -103,7 +103,7 @@ export function Arena() {
                       <Badge tone={e.validation === "PASS" ? "green" : e.validation === "BLOCKED" ? "amber" : "zinc"}>{validationLabel(e.validation)}</Badge>
                       <span className="text-xs text-slate-400">{timeFmt(e.ts)}</span>
                     </div>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600">{e.detail}</p>
+                    <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-600">{e.detail}</p>
                     <p className="mt-1 text-xs text-slate-400">This step cost {money(e.cost)}{e.evidenceRef ? ` · Main paper: ${e.evidenceRef}` : ""}</p>
                   </div>
                 </li>

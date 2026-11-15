@@ -1,5 +1,5 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 
 /** Small info button. The explanation shows while the mouse hovers, and hides when it leaves. */
@@ -66,6 +66,22 @@ export function Empty({ children }: { children: ReactNode }) {
 export function Field({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
   return <label className="block"><span className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-slate-700">{label}{help && <InfoTip text={help} label={`More about ${label}`} />}</span>{children}</label>;
 }
+/** Works out how many fixed height rows fit in the space on screen, so a list never half shows its last row. */
+export function useFitRows<T extends HTMLElement>(rowHeight: number, reserve = 0, min = 3, max = 16) {
+  const ref = useRef<T | null>(null);
+  const [rows, setRows] = useState(min);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setRows(Math.max(min, Math.min(max, Math.floor(Math.max(0, el.clientHeight - reserve) / rowHeight))));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [rowHeight, reserve, min, max]);
+  return { ref, rows };
+}
+
 export function Pager({ page, pages, onPage }: { page: number; pages: number; onPage: (p: number) => void }) {
   if (pages <= 1) return null;
   return (

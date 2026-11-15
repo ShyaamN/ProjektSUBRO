@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Badge, Bar, Field, InfoTip, Kpi, Pager, Panel, btnPrimary, inputCls } from "./ui";
+import { Badge, Bar, Field, InfoTip, Kpi, Pager, Panel, btnPrimary, inputCls, useFitRows } from "./ui";
 import { allocatePortfolio } from "@/lib/capital";
 import { money, pct } from "@/lib/format";
 import { categoryLabel, purchaseLabel } from "@/lib/labels";
@@ -13,9 +13,8 @@ const CARE_WORDS: Record<CapitalConfig["riskTolerance"], { label: string; help: 
   BALANCED: { label: "In the middle", help: "Buy claims where our chance of getting paid is at least 45 out of 100." },
   AGGRESSIVE: { label: "Bold", help: "Buy claims where our chance of getting paid is at least 30 out of 100." },
 };
-const PER_PAGE = 7;
-
 export function CapitalDesk() {
+  const { ref: tableRef, rows: perPage } = useFitRows<HTMLDivElement>(56, 40, 4, 12);
   const s = useSubro();
   const [msg, setMsg] = useState("");
   const [page, setPage] = useState(0);
@@ -23,11 +22,11 @@ export function CapitalDesk() {
   const withEachInsurer = useMemo(() => { const m: Record<string, number> = {}; s.purchases.forEach((p) => { const ins = s.claims.find((c) => c.id === p.claimId)?.insurer ?? "Unknown insurer"; m[ins] = (m[ins] ?? 0) + p.advance; }); return m; }, [s.purchases, s.claims]);
   const plan = useMemo(() => allocatePortfolio(s.claims, s.config, purchasedIds, withEachInsurer, s.reconciliation.deployed), [s.claims, s.config, purchasedIds, withEachInsurer, s.reconciliation.deployed]);
   const set = (patch: Partial<CapitalConfig>) => { s.setConfig({ ...s.config, ...patch }); setPage(0); };
-  const pages = Math.max(1, Math.ceil(plan.selected.length / PER_PAGE));
+  const pages = Math.max(1, Math.ceil(plan.selected.length / perPage));
   const safePage = Math.min(page, pages - 1);
-  const planRows = plan.selected.slice(safePage * PER_PAGE, safePage * PER_PAGE + PER_PAGE);
-  const boughtPages = Math.max(1, Math.ceil(s.purchases.length / 9));
-  const boughtRows = s.purchases.slice(safePage * 9, safePage * 9 + 9);
+  const planRows = plan.selected.slice(safePage * perPage, safePage * perPage + perPage);
+  const boughtPages = Math.max(1, Math.ceil(s.purchases.length / perPage));
+  const boughtRows = s.purchases.slice(safePage * perPage, safePage * perPage + perPage);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
@@ -72,10 +71,11 @@ export function CapitalDesk() {
             <div className="rounded-xl bg-slate-50 py-2.5"><div className="text-xs text-slate-500">We expect to get back</div><div className="num mt-1 text-lg font-semibold text-slate-900">{money(plan.totalExpectedCollection)}</div></div>
             <div className="rounded-xl bg-slate-50 py-2.5"><div className="text-xs text-slate-500">Expected gain</div><div className="num mt-1 text-lg font-semibold text-teal-800">{money(plan.totalExpectedContribution)}</div></div>
           </div>
-          <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200">
-            <table className="w-full min-w-[620px] text-sm">
-              <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-4 py-2.5 font-medium">Claim</th><th className="px-4 py-2.5 font-medium">Clinic</th><th className="px-4 py-2.5 text-right font-medium">Pay now</th><th className="px-4 py-2.5 text-right font-medium">Expect back</th><th className="px-4 py-2.5 text-right font-medium">Expected gain</th></tr></thead>
-              <tbody>{planRows.map((x) => <tr key={x.claim.id} className="border-t border-slate-100"><td className="mono px-4 py-2.5 text-[13px] font-medium text-teal-800">{x.claim.id}</td><td className="px-4 py-2.5 text-slate-600">{x.claim.clinic}<span className="block text-xs text-slate-400">{x.claim.insurer}</span></td><td className="num px-4 py-2.5">{money(x.advance)}</td><td className="num px-4 py-2.5">{money(x.expectedCollection)}</td><td className="num px-4 py-2.5 font-medium text-emerald-700">{money(x.expectedContribution)}</td></tr>)}</tbody>
+          <div ref={tableRef} className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full table-fixed text-sm">
+              <colgroup><col className="w-[14%]" /><col className="w-[32%]" /><col className="w-[18%]" /><col className="w-[18%]" /><col className="w-[18%]" /></colgroup>
+              <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-3 py-2.5 font-medium">Claim</th><th className="px-3 py-2.5 font-medium">Clinic</th><th className="px-3 py-2.5 text-right font-medium">Pay now</th><th className="px-3 py-2.5 text-right font-medium">Expect back</th><th className="px-3 py-2.5 text-right font-medium">Expected gain</th></tr></thead>
+              <tbody>{planRows.map((x) => <tr key={x.claim.id} className="border-t border-slate-100"><td className="mono truncate px-3 py-2 text-[13px] font-medium text-teal-800">{x.claim.id}</td><td className="px-3 py-2 text-slate-600"><span className="block truncate">{x.claim.clinic}</span><span className="block truncate text-xs text-slate-400">{x.claim.insurer}</span></td><td className="num px-3 py-2">{money(x.advance)}</td><td className="num px-3 py-2">{money(x.expectedCollection)}</td><td className="num px-3 py-2 font-medium text-emerald-700">{money(x.expectedContribution)}</td></tr>)}</tbody>
             </table>
             {plan.selected.length === 0 && <p className="p-8 text-center text-sm text-slate-500">No more claims fit your rules right now. Try adding money or being a little bolder.</p>}
           </div>
@@ -86,10 +86,11 @@ export function CapitalDesk() {
       {s.subtab === "bought" && (
         <Panel title="Claims we already bought" sub="These are the claims we now own and can chase." className="min-h-0 flex-1" right={<Pager page={safePage} pages={boughtPages} onPage={setPage} />}>
           {s.purchases.length === 0 ? <p className="text-sm text-slate-500">Nothing bought yet. Buy from the suggested list, or from any claim.</p> : (
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200">
-              <table className="w-full min-w-[600px] text-sm">
-                <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-4 py-2.5 font-medium">Claim</th><th className="px-4 py-2.5 text-right font-medium">Paid to clinic</th><th className="px-4 py-2.5 text-right font-medium">Expect back</th><th className="px-4 py-2.5 text-right font-medium">Back so far</th><th className="px-4 py-2.5 text-right font-medium">Where it stands</th></tr></thead>
-                <tbody>{boughtRows.map((p) => <tr key={p.claimId} className="border-t border-slate-100"><td className="mono px-4 py-2.5 text-[13px] font-medium text-teal-800">{p.claimId}</td><td className="num px-4 py-2.5">{money(p.advance)}</td><td className="num px-4 py-2.5">{money(p.expectedCollection)}</td><td className="num px-4 py-2.5">{money(p.realizedCollection)}</td><td className="px-4 py-2.5 text-right"><Badge tone={p.status === "SETTLED" ? "green" : p.status === "ACTIVE" ? "cyan" : "amber"}>{purchaseLabel(p.status)}</Badge></td></tr>)}</tbody>
+            <div ref={tableRef} className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full table-fixed text-sm">
+                <colgroup><col className="w-[16%]" /><col className="w-[19%]" /><col className="w-[19%]" /><col className="w-[19%]" /><col className="w-[27%]" /></colgroup>
+                <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="px-3 py-2.5 font-medium">Claim</th><th className="px-3 py-2.5 text-right font-medium">Paid to clinic</th><th className="px-3 py-2.5 text-right font-medium">Expect back</th><th className="px-3 py-2.5 text-right font-medium">Back so far</th><th className="px-3 py-2.5 text-right font-medium">Where it stands</th></tr></thead>
+                <tbody>{boughtRows.map((p) => <tr key={p.claimId} className="border-t border-slate-100"><td className="mono truncate px-3 py-2.5 text-[13px] font-medium text-teal-800">{p.claimId}</td><td className="num px-3 py-2.5">{money(p.advance)}</td><td className="num px-3 py-2.5">{money(p.expectedCollection)}</td><td className="num px-3 py-2.5">{money(p.realizedCollection)}</td><td className="px-3 py-2.5 text-right"><Badge tone={p.status === "SETTLED" ? "green" : p.status === "ACTIVE" ? "cyan" : "amber"}>{purchaseLabel(p.status)}</Badge></td></tr>)}</tbody>
               </table>
             </div>
           )}
