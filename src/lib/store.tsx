@@ -113,7 +113,7 @@ export function SubroProvider({ children }: { children: ReactNode }) {
     });
   }, [audit]);
 
-  const resetAll = useCallback(() => { settledRef.current.clear(); try { localStorage.removeItem(KEY); } catch {} setState(initial()); select("CASE-1042"); setView("trading"); setSubtab("glance"); }, [setView]);
+  const resetAll = useCallback(() => { settledRef.current.clear(); settledNegRef.current.clear(); try { localStorage.removeItem(KEY); } catch {} setState(initial()); select("CASE-1042"); setView("trading"); setSubtab("glance"); }, [setView]);
 
   const reconciliation = useMemo(() => reconcile(state.config.availableCapital, state.ledger, state.purchases), [state]);
   const value: Ctx = { ...state, view, setView, subtab, setSubtab, selectedId, select, setConfig, updateProbability, acceptOffer, acceptMany, stepRun, runFull, resetRun, resetAll, logAuto, clearAutoLog, setNeg, settleNegotiation, reconciliation, hydrated };

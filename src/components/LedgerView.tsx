@@ -6,10 +6,16 @@ import { money, timeFmt } from "@/lib/format";
 import { auditLabel, purchaseLabel, txLabel } from "@/lib/labels";
 import { useSubro } from "@/lib/store";
 
+const LEDGER_PARTS = [
+  { id: "money", label: "Money list" },
+  { id: "turned", label: "How claims turned out" },
+  { id: "history", label: "History" },
+];
+
 export function LedgerView() {
   const { ref: tableRef, rows: perPage } = useFitRows<HTMLDivElement>(60, 40, 4, 12);
   const { ref: histRef, rows: historyPerPage } = useFitRows<HTMLDivElement>(76, 0, 3, 10);
-  const { ledger, purchases, audit, reconciliation, config, claims, subtab } = useSubro();
+  const { ledger, purchases, audit, reconciliation, config, claims, subtab, setSubtab } = useSubro();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const txs = [...ledger].reverse().filter((t) => !q || `${t.claimId} ${txLabel(t.type)} ${t.memo}`.toLowerCase().includes(q.toLowerCase()));
@@ -24,6 +30,11 @@ export function LedgerView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex shrink-0 gap-2">
+        {LEDGER_PARTS.map((p) => (
+          <button key={p.id} onClick={() => { setSubtab(p.id); setPage(0); }} aria-current={subtab === p.id ? "page" : undefined} className={`rounded-full border px-3.5 py-1.5 text-[13px] transition ${subtab === p.id ? "border-teal-700 bg-teal-700 font-medium text-white" : "border-slate-300 bg-white text-slate-600 hover:border-teal-600 hover:text-teal-800"}`}>{p.label}</button>
+        ))}
+      </div>
       <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Kpi label="Money we can still spend" value={money(reconciliation.available)} hint={`We started with ${money(config.availableCapital)}.`} tone="text-teal-800" />
         <Kpi label="Paid to clinics" value={money(reconciliation.deployed)} hint="What buying claims has cost so far." />

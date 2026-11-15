@@ -45,6 +45,7 @@ export async function POST(req: Request) {
     if (body.reply.amount === 0 && move === "ACCEPT") move = "COUNTER";
     if (body.reply.outcome === "APPROVED") move = "ACCEPT";
     if (round >= 3 && move === "COUNTER") move = "STOP";
+    if (body.reply.final && body.reply.amount > 0 && move === "COUNTER" && round >= 2) move = "ACCEPT";
     const reason = text.split("|").slice(1).join("|").trim().slice(0, 220) || fallback.reason;
     return Response.json({ move, reason, source: "ai", model });
   } catch {
