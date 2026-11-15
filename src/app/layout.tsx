@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SUBRO — Receivables Underwriting & Autonomous Recovery",
-  description: "Institutional synthetic-sandbox platform for denied healthcare receivables: deterministic underwriting, capital allocation, bounded autonomous recovery, and a reconciled financial ledger.",
+  title: "SUBRO: buy denied claims and chase the money owed",
+  description: "SUBRO helps a team look at denied health insurance claims, decide which ones are worth buying, and chase the money the insurer may still owe.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

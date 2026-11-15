@@ -3,28 +3,20 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-ink: #0b0e11;
-  --color-panel: #11151a;
-  --color-panel2: #151a20;
-  --color-panel3: #1a2028;
-  --color-line: #242c35;
-  --color-line2: #2e3843;
-  --color-tealx: #2dd4bf;
-  --color-cyanx: #67e8f9;
 }
 
-:root { --background:#0b0e11; --foreground:#dbe2ea; }
+:root { --background: #f4f6f6; --foreground: #1c2b33; }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
-body { background:#0b0e11; color:#dbe2ea; font-family: var(--font-geist-sans), Inter, system-ui, sans-serif; font-feature-settings:"tnum" 1, "cv05" 1; }
-::selection { background:#134e4a; color:#ccfbf1; }
-::-webkit-scrollbar { width:10px; height:10px; }
-::-webkit-scrollbar-thumb { background:#2a333e; border:2px solid #0b0e11; border-radius:6px; }
-::-webkit-scrollbar-track { background:#0e1216; }
+body { background: #f4f6f6; color: #1c2b33; font-family: var(--font-geist-sans), Inter, system-ui, sans-serif; }
+::selection { background: #cdeee6; color: #0b3b34; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #c3ced1; border: 2px solid #f4f6f6; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
 input, select, textarea, button { font: inherit; }
-input[type="range"] { accent-color:#2dd4bf; }
+input[type="range"] { accent-color: #0e7569; }
 table { border-collapse: collapse; }
-.num { font-variant-numeric: tabular-nums; text-align:right; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
 .mono { font-family: var(--font-geist-mono), ui-monospace, monospace; }
-:focus-visible { outline:2px solid #2dd4bf; outline-offset:1px; }
-@media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+:focus-visible { outline: 2px solid #0e7569; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
