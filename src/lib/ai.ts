@@ -1,4 +1,39 @@
-import type { Claim } from "./types";
+import { underwrite } from "./finance";
+import type { CapitalConfig, Claim } from "./types";
+
+export interface AiPick { id?: string; claimId?: string; pay?: number; why?: string; }
+export interface CheckedPick { claimId: string; advance: number; expectedCollection: number; expectedContribution: number; why: string; trimmed: boolean; }
+
+/**
+ * The AI proposes. This decides what may actually happen.
+ * A pick only survives if the claim passes every buying check at that price,
+ * the money is there, and one insurer would not hold too big a share.
+ */
+export function validatePicks(picks: AiPick[], claims: Claim[], config: CapitalConfig, purchasedIds: Set<string>, alreadyWithInsurer: Record<string, number> = {}, alreadySpent = 0): { accepted: CheckedPick[]; rejected: { claimId: string; reason: string }[] } {
+  const accepted: CheckedPick[] = [];
+  const rejected: { claimId: string; reason: string }[] = [];
+  const withInsurer = { ...alreadyWithInsurer };
+  let spent = alreadySpent;
+  for (const pick of picks.slice(0, 30)) {
+    const id = String(pick.id ?? pick.claimId ?? "");
+    const claim = claims.find((c) => c.id === id);
+    if (!claim) { rejected.push({ claimId: id || "unknown", reason: "The AI named a claim that does not exist." }); continue; }
+    if (purchasedIds.has(id) || accepted.some((a) => a.claimId === id)) { rejected.push({ claimId: id, reason: "Already bought, so it cannot be bought twice." }); continue; }
+    const uw = underwrite(claim, { minContribution: config.minContribution });
+    if (uw.decision !== "BUY CANDIDATE") { rejected.push({ claimId: id, reason: "It does not pass the buying checks, so the AI pick was thrown out." }); continue; }
+    let advance = Math.round(Number(pick.pay) || uw.advance);
+    let trimmed = false;
+    if (advance > uw.maxPrice) { advance = Math.max(0, Math.floor(uw.maxPrice)); trimmed = true; }
+    if (advance <= 0) { rejected.push({ claimId: id, reason: "The price made no sense, so the AI pick was thrown out." }); continue; }
+    if (spent + advance > config.availableCapital) { rejected.push({ claimId: id, reason: "Not enough money left for this one." }); continue; }
+    if ((withInsurer[claim.insurer] ?? 0) + advance > config.availableCapital * config.maxInsurerConcentration) { rejected.push({ claimId: id, reason: `Too much money would sit with ${claim.insurer}.` }); continue; }
+    const atPrice = underwrite(claim, { minContribution: config.minContribution, advance });
+    accepted.push({ claimId: id, advance, expectedCollection: atPrice.expectedCollection, expectedContribution: atPrice.expectedContribution, why: String(pick.why ?? "").slice(0, 220), trimmed });
+    spent += advance;
+    withInsurer[claim.insurer] = (withInsurer[claim.insurer] ?? 0) + advance;
+  }
+  return { accepted, rejected };
+}
 
 /** Facts the AI letter is allowed to use. Anything outside this list must be rejected. */
 export function letterFacts(claim: Claim) {

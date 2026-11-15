@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRun, runToCompletion, stepAgent } from "@/lib/agent";
-import { plainLetter, validateAiLetter } from "@/lib/ai";
+import { plainLetter, validateAiLetter, validatePicks } from "@/lib/ai";
 import { actualContribution, allocatePortfolio, applyTx } from "@/lib/capital";
 import { portfolioAnalytics, underwrite } from "@/lib/finance";
 import { evaluateSubmission } from "@/lib/insurer";
@@ -61,6 +61,22 @@ describe("AI letter guardrail", () => {
     const invented = `Dear insurer, about claim CASE-1042 we are owed $9,999 in total and ask you to pay it at once please.`;
     expect(validateAiLetter(invented, claim("CASE-1042")).ok).toBe(false);
     expect(validateAiLetter("Short.", claim("CASE-1042")).ok).toBe(false);
+  });
+});
+
+describe("AI buying picks are checked before any money moves", () => {
+  const config = { availableCapital: 250000, minContribution: 25, maxInsurerConcentration: 0.35, riskTolerance: "BALANCED" as const, eligibleCategories: "ALL" as const };
+  it("accepts a sound AI pick at its price", () => {
+    const r = validatePicks([{ id: "CASE-1042", pay: 300, why: "Good gain" }], INITIAL_CLAIMS, config, new Set());
+    expect(r.accepted).toHaveLength(1); expect(r.accepted[0].advance).toBe(300);
+  });
+  it("trims a silly AI price down to the most we should pay", () => {
+    const r = validatePicks([{ id: "CASE-1042", pay: 99999 }], INITIAL_CLAIMS, config, new Set());
+    expect(r.accepted[0].advance).toBe(345); expect(r.accepted[0].trimmed).toBe(true);
+  });
+  it("throws out picks that fail the buying checks or do not exist", () => {
+    const r = validatePicks([{ id: "CASE-2088", pay: 100 }, { id: "NOPE-1", pay: 10 }], INITIAL_CLAIMS, config, new Set());
+    expect(r.accepted).toHaveLength(0); expect(r.rejected).toHaveLength(2);
   });
 });
 
