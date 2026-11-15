@@ -22,25 +22,25 @@ export function underwrite(claim: Claim, input: UnderwriteInput = {}): Underwrit
   const collectibleOk = claim.collectible === claim.allowed - claim.patientResponsibility && claim.collectible > 0;
 
   const checks = [
-    { label: "Collectible integrity", pass: collectibleOk, detail: collectibleOk ? `Allowed ${fmt(claim.allowed)} − patient ${fmt(claim.patientResponsibility)} = collectible ${fmt(claim.collectible)} (billed charges excluded)` : "Collectible does not reconcile to allowed − patient responsibility" },
-    { label: "Required evidence", pass: evidenceOk && !contradictory, detail: contradictory ? "Evidence contains contradictory records — specialist review required" : evidenceOk ? `${required?.id} available · ${required?.provenance}` : `${claim.requiredEvidenceId} is ${required?.status ?? "absent"} — cannot price as a buy` },
-    { label: "Authorization", pass: authOk, detail: `Authorization status: ${claim.authorizationStatus}` },
-    { label: "Procedural window", pass: !expired, detail: expired ? `Deadline ${claim.deadline} has passed (as of ${AS_OF})` : `Open until ${claim.deadline}` },
-    { label: "Economics", pass: expectedContribution >= minContribution, detail: `Expected collection ${fmt(expectedCollection)} − advance ${fmt(advance)} − expenses ${fmt(cost)} = contribution ${fmt(expectedContribution)} (minimum ${fmt(minContribution)}; max price ${fmt(maxPrice)})` },
+    { label: "The amount adds up", pass: collectibleOk, detail: collectibleOk ? `The insurer may owe ${fmt(claim.collectible)}. That is the agreed price of ${fmt(claim.allowed)}, minus the ${fmt(claim.patientResponsibility)} the patient owes. The first bill amount of ${fmt(claim.billed)} does not count, because the insurer never agreed to it.` : "The amount the insurer may owe does not match the agreed price minus what the patient owes, so we stop here." },
+    { label: "We have the paper we need", pass: evidenceOk && !contradictory, detail: contradictory ? "Two papers disagree with each other. A person needs to sort that out before we trust either one." : evidenceOk ? `We have the main paper we need, and we know where it came from.` : "The main paper we need is missing, so we cannot buy this yet with confidence." },
+    { label: "We are allowed to chase it", pass: authOk, detail: claim.authorizationStatus === "AUTHORIZED" ? "Approval is in place." : claim.authorizationStatus === "NOT_REQUIRED" ? "No approval is needed for this one." : "Approval is still missing, so a person needs to look before we buy." },
+    { label: "There is still time", pass: !expired, detail: expired ? `The last day to act was ${claim.deadline}, and that day has passed. In other words, the deadline expired.` : `We have until ${claim.deadline} to act, so there is still time.` },
+    { label: "The numbers work", pass: expectedContribution >= minContribution, detail: `On average we expect to get back ${fmt(expectedCollection)}. Paying ${fmt(advance)} now and spending ${fmt(cost)} to chase it leaves ${expectedContribution >= 0 ? `${fmt(expectedContribution)} ahead` : `${fmt(Math.abs(expectedContribution))} behind`}. We want at least ${fmt(minContribution)} ahead, so the most we should pay is ${fmt(Math.max(0, maxPrice))}.` },
   ];
 
   const reasons: string[] = [];
   let decision: Underwriting["decision"];
-  if (expired) { decision = "DECLINE"; reasons.push("Procedural window expired — apparent collectible value is not recoverable through this channel."); }
-  else if (expectedContribution < 0) { decision = "DECLINE"; reasons.push(`Negative expected contribution (${fmt(expectedContribution)}). Offer must be repriced to at most ${fmt(Math.max(0, maxPrice))} or declined.`); }
+  if (expired) { decision = "DECLINE"; reasons.push("The deadline has expired, so this money is almost certainly gone, no matter how big the amount looks."); }
+  else if (expectedContribution < 0) { decision = "DECLINE"; reasons.push(`At this price we would lose money on average. We should pay no more than ${fmt(Math.max(0, maxPrice))}, or walk away.`); }
   else if (!evidenceOk || contradictory || !authOk) {
     decision = "NEEDS REVIEW";
-    if (contradictory) reasons.push("Contradictory evidence must be reconciled by a human — the system will not select the more favorable record.");
-    if (!evidenceOk) reasons.push(`Required evidence ${claim.requiredEvidenceId} is not available.`);
-    if (!authOk) reasons.push(`Authorization is ${claim.authorizationStatus.toLowerCase()} — specialist authorization required before financing.`);
-  } else if (expectedContribution < minContribution) { decision = "NEEDS REVIEW"; reasons.push(`Positive but below minimum contribution (${fmt(expectedContribution)} < ${fmt(minContribution)}). Reprice or obtain review approval.`); }
-  else { decision = "BUY CANDIDATE"; reasons.push("Evidence, authorization, procedural window, and economics all pass deterministic checks."); }
-  if (!collectibleOk) { decision = "DECLINE"; reasons.push("Collectible amount fails reconciliation."); }
+    if (contradictory) reasons.push("Two papers disagree. We will not just pick the one that helps us most, so a person needs to sort it out.");
+    if (!evidenceOk) reasons.push("The main paper we need is missing. Once it turns up, this can be looked at again.");
+    if (!authOk) reasons.push("Approval is still missing, so a person needs to say yes before we buy.");
+  } else if (expectedContribution < minContribution) { decision = "NEEDS REVIEW"; reasons.push(`The numbers work, but the gain is smaller than the least we accept. A lower price could still make this worth buying.`); }
+  else { decision = "BUY CANDIDATE"; reasons.push("We have the papers, we are allowed to chase it, there is still time, and the numbers work."); }
+  if (!collectibleOk) { decision = "DECLINE"; reasons.push("The amount the insurer may owe does not add up, so we will not touch this one."); }
 
   return { expectedCollection, advance, riskReserve, maxPrice, expectedContribution, decision, reasons, checks };
 }

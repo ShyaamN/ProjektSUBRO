@@ -1,39 +1,69 @@
 "use client";
-import { Badge, Panel, btnPrimary } from "./ui";
+import { Badge, Panel, btnGhost, btnPrimary } from "./ui";
 import { underwrite } from "@/lib/finance";
 import { dateFmt, money, pct } from "@/lib/format";
+import { authLabel, decisionLabel, decisionTone, evidenceLabel } from "@/lib/labels";
 import { useSubro } from "@/lib/store";
 import type { Claim } from "@/lib/types";
 
-export const decisionTone = (d: string) => (d === "BUY CANDIDATE" ? "green" : d === "NEEDS REVIEW" ? "amber" : "red") as "green" | "amber" | "red";
+export { decisionTone };
 
 export function ClaimDetail({ claim }: { claim: Claim }) {
   const { acceptOffer, purchases, setView } = useSubro();
   const uw = underwrite(claim, {});
   const purchased = purchases.find((p) => p.claimId === claim.id);
+  const ahead = uw.expectedContribution >= 0;
+
   return (
-    <Panel title={`Claim ${claim.id}`} sub={claim.scenario ? `Scenario: ${claim.scenario}` : "Synthetic denied receivable"} right={<Badge tone={decisionTone(uw.decision)}>{uw.decision}</Badge>}>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px]">
-        {[["Clinic", claim.clinic], ["Insurer", claim.insurer], ["Service", dateFmt(claim.serviceDate)], ["Denied", dateFmt(claim.denialDate)], ["Deadline", dateFmt(claim.deadline)], ["Category", claim.denialCategory], ["Authorization", claim.authorizationStatus], ["Duration (est.)", `${claim.estimatedDurationDays} days`]].map(([k, v]) => (
-          <div key={k}><dt className="text-[10px] tracking-wider text-zinc-500 uppercase">{k}</dt><dd className="mt-0.5 text-zinc-200">{v}</dd></div>
+    <Panel title={claim.clinic} sub={`Claim number ${claim.id}`} right={<Badge tone={decisionTone(uw.decision)}>{decisionLabel(uw.decision)}</Badge>}>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        {[["Insurer", claim.insurer], ["Care took place", dateFmt(claim.serviceDate)], ["Claim was sent", dateFmt(claim.submissionDate)], ["Insurer said no", dateFmt(claim.denialDate)], ["Last day to act", dateFmt(claim.deadline)], ["Approval to chase it", authLabel(claim.authorizationStatus)]].map(([k, v]) => (
+          <div key={k}><dt className="text-xs text-slate-500">{k}</dt><dd className="mt-0.5 text-slate-800">{v}</dd></div>
         ))}
       </dl>
-      <p className="mt-3 border-l-2 border-amber-800/60 pl-2 text-[12px] leading-relaxed text-zinc-400">{claim.denialReason}</p>
-      <div className="mt-3 space-y-1 border-t border-[#20262e] pt-3 text-[12px]">
-        {[["Billed charges (not collectible)", money(claim.billed)], ["Contractually allowed", money(claim.allowed)], ["Patient responsibility", `− ${money(claim.patientResponsibility)}`], ["Potential insurer collectible", money(claim.collectible)], ["Modeled recovery probability*", pct(claim.recoveryProbability, 0)], ["Expected collection", money(uw.expectedCollection)], ["Proposed advance (60% of collectible)", money(uw.advance)], ["Expected recovery expenses", `− ${money(claim.estimatedCost)}`], ["Expected contribution", money(uw.expectedContribution)], ["Maximum acceptable price", money(Math.max(0, uw.maxPrice))], ["Risk reserve (earmark)", money(uw.riskReserve)]].map(([k, v], i) => (
-          <div key={k} className={`flex justify-between ${i === 3 || i === 9 ? "font-semibold text-teal-300" : "text-zinc-400"}`}><span>{k}</span><span className="num text-zinc-200">{v}</span></div>
-        ))}
+      <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2.5 text-sm leading-relaxed text-amber-900">Why the insurer said no: {claim.denialReason}</p>
+
+      <div className="mt-5">
+        <h3 className="text-sm font-semibold text-slate-800">The maths, in plain words</h3>
+        <dl className="mt-2 space-y-2 text-sm">
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">First amount on the bill</dt><dd className="num text-slate-800">{money(claim.billed)}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">Price the insurer agreed to</dt><dd className="num text-slate-800">{money(claim.allowed)}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">The patient owes</dt><dd className="num text-slate-800">{money(claim.patientResponsibility)}</dd></div>
+          <div className="flex justify-between gap-3 border-t border-slate-100 pt-2 font-medium"><dt className="text-slate-700">So the insurer may still owe</dt><dd className="num text-teal-800">{money(claim.collectible)}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">Chance we get paid (our best guess)</dt><dd className="num text-slate-800">{pct(claim.recoveryProbability, 0)}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">On average, we expect to get back</dt><dd className="num text-slate-800">{money(uw.expectedCollection)}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">We would pay the clinic now</dt><dd className="num text-slate-800">{money(uw.advance)}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">It may cost this much to chase</dt><dd className="num text-slate-800">{money(claim.estimatedCost)}</dd></div>
+        </dl>
+        <p className={`mt-3 rounded-lg px-3 py-2.5 text-sm leading-relaxed ${ahead ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-800"}`}>
+          {ahead
+            ? `On average we would end up ${money(uw.expectedContribution)} ahead. The most we should pay is ${money(Math.max(0, uw.maxPrice))}.`
+            : `On average we would end up ${money(Math.abs(uw.expectedContribution))} behind at this price. The most we should pay is ${money(Math.max(0, uw.maxPrice))}, or we should walk away.`}
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">The chance of getting paid is our best guess today. It is not a promise.</p>
       </div>
-      <p className="mt-2 text-[10px] text-zinc-600">* Modeled assumption — not validated empirical recovery data.</p>
-      <div className="mt-3 border-t border-[#20262e] pt-3">
-        <div className="mb-1.5 text-[10px] tracking-wider text-zinc-500 uppercase">Evidence &amp; provenance</div>
-        {claim.evidence.map((e) => <div key={e.id} className="mb-1 flex items-start justify-between gap-2 text-[11px]"><span className="mono text-zinc-300">{e.id} · {e.type}<span className="block font-sans text-zinc-500">{e.provenance}{e.note ? ` — ${e.note}` : ""}</span></span><Badge tone={e.status === "AVAILABLE" ? "green" : e.status === "MISSING" ? "red" : "amber"}>{e.status}</Badge></div>)}
+
+      <div className="mt-5">
+        <h3 className="text-sm font-semibold text-slate-800">Papers we have</h3>
+        <ul className="mt-2 space-y-2">
+          {claim.evidence.map((e) => (
+            <li key={e.id} className="flex items-start justify-between gap-3 text-sm">
+              <span className="text-slate-700">{e.type}<span className="block text-xs text-slate-400">From {e.provenance.toLowerCase()}{e.note ? `. ${e.note}` : ""}</span></span>
+              <Badge tone={e.status === "AVAILABLE" ? "green" : e.status === "MISSING" ? "red" : "amber"}>{evidenceLabel(e.status)}</Badge>
+            </li>
+          ))}
+        </ul>
       </div>
-      <div className="mt-3 space-y-1 border-t border-[#20262e] pt-3">{uw.reasons.map((r) => <p key={r} className="text-[11px] leading-relaxed text-zinc-400">· {r}</p>)}</div>
-      <div className="mt-3 flex gap-2">
-        {purchased ? <Badge tone="cyan">FINANCED · advance {money(purchased.advance)} · {purchased.status}</Badge> : <button className={btnPrimary} disabled={uw.decision !== "BUY CANDIDATE"} onClick={() => alert(acceptOffer(claim).message)}>Accept simulated offer</button>}
-        <button className="rounded-sm border border-[#2b343f] px-3 py-1.5 text-[13px] text-zinc-300 hover:text-white" onClick={() => setView("underwriting")}>Open in Underwriting Desk</button>
+
+      <ul className="mt-4 space-y-1.5">{uw.reasons.map((r) => <li key={r} className="text-sm leading-relaxed text-slate-600">• {r}</li>)}</ul>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        {purchased
+          ? <Badge tone="cyan">Bought for {money(purchased.advance)}</Badge>
+          : <button className={btnPrimary} disabled={uw.decision !== "BUY CANDIDATE"} onClick={() => alert(acceptOffer(claim).message)}>Buy this claim</button>}
+        <button className={btnGhost} onClick={() => setView("underwriting")}>Change the numbers</button>
       </div>
+      {uw.decision !== "BUY CANDIDATE" && !purchased && <p className="mt-2 text-xs text-slate-400">The buy button stays off until every check passes.</p>}
     </Panel>
   );
 }
