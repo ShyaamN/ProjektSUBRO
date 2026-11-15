@@ -16,8 +16,8 @@ let counter = 0;
 const uid = () => `id-${++counter}-${Date.now().toString(36)}`;
 const now = () => new Date().toISOString();
 
-interface State { claims: Claim[]; config: CapitalConfig; purchases: Purchase[]; ledger: LedgerTx[]; audit: AuditEvent[]; runs: Record<string, AgentRun>; autoLog: AutoEntry[]; negs: Record<string, NegState>; }
-const initial = (): State => ({ claims: INITIAL_CLAIMS, config: DEFAULT_CONFIG, purchases: [], ledger: [], audit: [{ id: "audit-init", ts: "2026-11-14T12:00:00.000Z", actor: "SYSTEM", action: "DEMO_STARTED", detail: "The demo is ready. Pick a claim to get started." }], runs: {}, autoLog: [], negs: {} });
+interface State { claims: Claim[]; config: CapitalConfig; purchases: Purchase[]; ledger: LedgerTx[]; audit: AuditEvent[]; runs: Record<string, AgentRun>; autoLog: AutoEntry[]; negs: Record<string, NegState>; tabs: string[]; activeTab: string; }
+const initial = (): State => ({ claims: INITIAL_CLAIMS, config: DEFAULT_CONFIG, purchases: [], ledger: [], audit: [{ id: "audit-init", ts: "2026-11-14T12:00:00.000Z", actor: "SYSTEM", action: "DEMO_STARTED", detail: "The demo is ready. Pick a claim to get started." }], runs: {}, autoLog: [], negs: {}, tabs: [], activeTab: "list" });
 
 interface Ctx extends State {
   view: View; setView: (v: View) => void; subtab: string; setSubtab: (s: string) => void; selectedId: string; select: (id: string) => void;
@@ -27,6 +27,7 @@ interface Ctx extends State {
   stepRun: (claim: Claim) => void; runFull: (claim: Claim) => void; resetRun: (id: string) => void;
   logAuto: (kind: AutoEntry["kind"], text: string) => void; clearAutoLog: () => void;
   setNeg: (n: NegState) => void; settleNegotiation: (claimId: string, realized: number, spent: number, endStage: string) => void;
+  openClaimTab: (id: string) => void; closeClaimTab: (id: string) => void; setActiveTab: (t: string) => void;
   resetAll: () => void; reconciliation: ReturnType<typeof reconcile>; hydrated: boolean;
 }
 const C = createContext<Ctx | null>(null);
@@ -42,7 +43,7 @@ export function SubroProvider({ children }: { children: ReactNode }) {
 
   // Hydration from browser storage must happen after mount to keep server/client markup identical.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { try { const raw = localStorage.getItem(KEY); if (raw) { const p = JSON.parse(raw) as State; if (p.claims?.length >= 100) { setState({ ...initial(), ...p, autoLog: p.autoLog ?? [], negs: p.negs ?? {} }); Object.keys(p.runs ?? {}).forEach((k) => { if (p.runs[k].status !== "RUNNING") settledRef.current.add(k); }); } } } catch { /* corrupted storage falls back to seed */ } setHydrated(true); }, []);
+  useEffect(() => { try { const raw = localStorage.getItem(KEY); if (raw) { const p = JSON.parse(raw) as State; if (p.claims?.length >= 100) { setState({ ...initial(), ...p, autoLog: p.autoLog ?? [], negs: p.negs ?? {}, tabs: p.tabs ?? [], activeTab: p.activeTab ?? "list" }); Object.keys(p.runs ?? {}).forEach((k) => { if (p.runs[k].status !== "RUNNING") settledRef.current.add(k); }); } } } catch { /* corrupted storage falls back to seed */ } setHydrated(true); }, []);
   useEffect(() => { if (hydrated) try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage unavailable */ } }, [state, hydrated]);
 
   const audit = useCallback((s: State, action: string, detail: string, actor = "OPERATOR"): State => ({ ...s, audit: [{ id: uid(), ts: now(), actor, action, detail }, ...s.audit].slice(0, 300) }), []);
@@ -53,8 +54,8 @@ export function SubroProvider({ children }: { children: ReactNode }) {
     const uw = underwrite(claim, { minContribution: s.config.minContribution, advance: advanceOverride });
     if (s.purchases.some((p) => p.claimId === claim.id)) return { s, ok: false, message: "We already bought this claim, so it cannot be bought twice." };
     if (uw.decision !== "BUY CANDIDATE") return { s, ok: false, message: `Not bought. ${uw.reasons[0]}` };
-    const deployed = s.purchases.reduce((a, p) => a + p.advance, 0);
-    if (deployed + uw.advance > s.config.availableCapital) return { s, ok: false, message: "Not bought. There is not enough money left, so nothing was spent at all." };
+    const cashFree = s.config.availableCapital + s.ledger.reduce((a, t) => a + t.amount, 0);
+    if (uw.advance > cashFree) return { s, ok: false, message: "Not bought. There is not enough money free, so nothing was spent at all." };
     const insurerDeployed = s.purchases.filter((p) => s.claims.find((c) => c.id === p.claimId)?.insurer === claim.insurer).reduce((a, p) => a + p.advance, 0);
     if (insurerDeployed + uw.advance > s.config.availableCapital * s.config.maxInsurerConcentration) return { s, ok: false, message: `Not bought. Too much money would end up sitting with ${claim.insurer}.` };
     const key = `purchase-${claim.id}`;
@@ -97,6 +98,9 @@ export function SubroProvider({ children }: { children: ReactNode }) {
   const logAuto = useCallback((kind: AutoEntry["kind"], text: string) => setState((s) => ({ ...s, autoLog: [{ id: uid(), ts: now(), kind, text }, ...s.autoLog].slice(0, 400) })), []);
   const clearAutoLog = useCallback(() => setState((s) => ({ ...s, autoLog: [] })), []);
   const setNeg = useCallback((n: NegState) => setState((s) => ({ ...s, negs: { ...s.negs, [n.claimId]: n } })), []);
+  const openClaimTab = useCallback((id: string) => setState((s) => ({ ...s, tabs: s.tabs.includes(id) ? s.tabs : [...s.tabs, id].slice(-8), activeTab: id })), []);
+  const closeClaimTab = useCallback((id: string) => setState((s) => { const tabs = s.tabs.filter((t) => t !== id); return { ...s, tabs, activeTab: s.activeTab === id ? (tabs[tabs.length - 1] ?? "list") : s.activeTab }; }), []);
+  const setActiveTab = useCallback((t: string) => setState((s) => ({ ...s, activeTab: t })), []);
   const settledNegRef = useRef<Set<string>>(new Set());
   const settleNegotiation = useCallback((claimId: string, realized: number, spent: number, endStage: string) => {
     if (settledNegRef.current.has(claimId)) return;
@@ -116,7 +120,7 @@ export function SubroProvider({ children }: { children: ReactNode }) {
   const resetAll = useCallback(() => { settledRef.current.clear(); settledNegRef.current.clear(); try { localStorage.removeItem(KEY); } catch {} setState(initial()); select("CASE-1042"); setView("trading"); setSubtab("glance"); }, [setView]);
 
   const reconciliation = useMemo(() => reconcile(state.config.availableCapital, state.ledger, state.purchases), [state]);
-  const value: Ctx = { ...state, view, setView, subtab, setSubtab, selectedId, select, setConfig, updateProbability, acceptOffer, acceptMany, stepRun, runFull, resetRun, resetAll, logAuto, clearAutoLog, setNeg, settleNegotiation, reconciliation, hydrated };
+  const value: Ctx = { ...state, view, setView, subtab, setSubtab, selectedId, select, setConfig, updateProbability, acceptOffer, acceptMany, stepRun, runFull, resetRun, resetAll, logAuto, clearAutoLog, setNeg, settleNegotiation, openClaimTab, closeClaimTab, setActiveTab, reconciliation, hydrated };
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 export function useSubro() { const v = useContext(C); if (!v) throw new Error("useSubro outside provider"); return v; }

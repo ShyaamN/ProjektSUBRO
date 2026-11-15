@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, Loader2, Search } from "lucide-react";
+import { Bot, Check, Loader2, Search, X } from "lucide-react";
 import { Badge, InfoTip, Pager, btnGhost, btnPrimary, inputCls, useFitRows } from "./ui";
 import { allocatePortfolio } from "@/lib/capital";
 import { portfolioAnalytics, underwrite } from "@/lib/finance";
@@ -23,6 +23,87 @@ function stageTone(stage: NegStage | "READY" | "LOOK" | "SKIP") {
   return "cyan";
 }
 
+function ClaimTab({ claim }: { claim: Claim }) {
+  const s = useSubro();
+  const uw = underwrite(claim, { minContribution: s.config.minContribution });
+  const neg = s.negs[claim.id];
+  const purchased = s.purchases.find((p) => p.claimId === claim.id);
+  const stage = neg ? STAGE_WORDS[neg.stage] : purchased ? STAGE_WORDS.QUEUED : decisionLabel(uw.decision);
+  const entries = s.autoLog.filter((e) => e.text.includes(claim.id));
+  const steps = ["Approved", "Papers checked", "Filed", "Talking with insurer", "Settled"];
+  const rank: Record<string, number> = { QUEUED: 0, CHECKING: 1, FILING: 2, TALKING: 3, WAITING_PAPER: 3, NEEDS_YOU: 3, PAID_FULL: 4, PAID_PART: 4, STOPPED: 4 };
+  const now = neg ? (rank[neg.stage] ?? 0) : purchased ? 0 : -1;
+
+  return (
+    <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,42,51,0.05)]" aria-label={`Claim ${claim.id}`}>
+        <div className="flex shrink-0 flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[17px] font-semibold text-slate-900">{claim.clinic}</h2>
+            <p className="mono mt-0.5 text-[12px] text-slate-400">{claim.id} · {claim.insurer}</p>
+          </div>
+          <Badge tone={neg ? stageTone(neg.stage) : purchased ? "cyan" : stageTone(uw.decision === "BUY CANDIDATE" ? "READY" : uw.decision === "NEEDS REVIEW" ? "LOOK" : "SKIP")}>{stage}</Badge>
+        </div>
+        <dl className="mt-4 grid shrink-0 grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-3">
+          {[["Care took place", dateFmt(claim.serviceDate)], ["Claim was sent", dateFmt(claim.submissionDate)], ["Insurer said no", dateFmt(claim.denialDate)], ["Last day to act", dateFmt(claim.deadline)], ["First bill amount", money(claim.billed)], ["Agreed price", money(claim.allowed)]].map(([k, v]) => (
+            <div key={k}><dt className="text-xs text-slate-500">{k}</dt><dd className="mt-0.5 text-slate-800">{v}</dd></div>
+          ))}
+        </dl>
+        <p className="mt-4 shrink-0 rounded-lg bg-amber-50 px-3.5 py-3 text-sm leading-relaxed text-amber-900">Why the insurer said no: {claim.denialReason}</p>
+        <div className="mt-5 grid shrink-0 gap-6 md:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">The maths</h3>
+            <dl className="mt-2 space-y-1.5 text-sm">
+              <div className="flex justify-between"><dt className="text-slate-500">Insurer may owe</dt><dd className="num font-semibold text-slate-900">{money(claim.collectible)}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-500">Chance we get paid</dt><dd className="num text-slate-700">{pct(claim.recoveryProbability, 0)} of 100</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-500">On average we expect back</dt><dd className="num text-slate-700">{money(uw.expectedCollection)}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-500">We pay the clinic</dt><dd className="num text-slate-700">{money(uw.advance)}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-500">Chasing may cost</dt><dd className="num text-slate-700">{money(claim.estimatedCost)}</dd></div>
+              <div className={`flex justify-between border-t border-slate-100 pt-1.5 font-medium ${uw.expectedContribution >= 0 ? "text-emerald-700" : "text-red-600"}`}><dt>{uw.expectedContribution >= 0 ? "On average we gain" : "On average we lose"}</dt><dd className="num">{money(Math.abs(uw.expectedContribution))}</dd></div>
+              {neg && TERMINAL.includes(neg.stage) && <div className="flex justify-between border-t border-slate-100 pt-1.5"><dt className="text-slate-500">Insurer actually paid</dt><dd className="num font-semibold text-slate-900">{money(neg.realized)}</dd></div>}
+            </dl>
+            {!purchased && uw.decision === "BUY CANDIDATE" && <p className="mt-3 text-[13px] text-slate-400">Approve it from the All claims list and the agent starts at once.</p>}
+            {!purchased && uw.decision !== "BUY CANDIDATE" && <p className="mt-3 text-[13px] leading-relaxed text-slate-500">{uw.reasons[0]}</p>}
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">Papers we have</h3>
+            <ul className="mt-2 space-y-2">
+              {claim.evidence.map((e) => (
+                <li key={e.id} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="text-slate-700">{e.type}<span className="block text-xs text-slate-400">From {e.provenance.toLowerCase()}{e.note ? `. ${e.note}` : ""}</span></span>
+                  <Badge tone={e.status === "AVAILABLE" ? "green" : e.status === "MISSING" ? "red" : "amber"}>{e.status === "AVAILABLE" ? "Got it" : e.status === "MISSING" ? "Missing" : "Papers disagree"}</Badge>
+                </li>
+              ))}
+            </ul>
+            <h3 className="mt-5 text-sm font-semibold text-slate-800">Where it stands</h3>
+            <ol className="mt-2 space-y-2">
+              {steps.map((label, i) => {
+                const st = i < now ? "done" : i === now ? "now" : "todo";
+                return <li key={label} className="flex items-center gap-2.5 text-sm"><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${st === "done" ? "bg-teal-700 text-white" : st === "now" ? "bg-teal-100 text-teal-800 ring-2 ring-teal-600" : "bg-slate-100 text-slate-400"}`}>{st === "done" ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-semibold">{i + 1}</span>}</span><span className={st === "now" ? "font-medium text-slate-900" : st === "done" ? "text-slate-700" : "text-slate-400"}>{label}</span></li>;
+              })}
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,42,51,0.05)]" aria-label={`Log for ${claim.id}`}>
+        <header className="shrink-0 px-5 pt-4 pb-2"><h3 className="text-[15px] font-semibold text-slate-800">Log for this claim</h3><p className="mt-0.5 text-[12px] text-slate-400">{entries.length} entries</p></header>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
+          {entries.length === 0 ? <p className="py-6 text-center text-sm text-slate-400">Nothing has happened to this claim yet.</p> : (
+            <ol>{entries.map((e) => (
+              <li key={e.id} className="flex gap-2.5 border-b border-slate-100 py-2.5 last:border-0">
+                <span className="mono w-[62px] shrink-0 pt-0.5 text-[11px] text-slate-400">{new Date(e.ts).toLocaleTimeString("en-US", { hour12: false })}</span>
+                <Badge tone={KIND_TONE[e.kind]}>{KIND_WORD[e.kind]}</Badge>
+                <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-slate-600">{e.text}</p>
+              </li>
+            ))}</ol>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function Workspace() {
   const s = useSubro();
   const { ref: tableRef, rows: perPage } = useFitRows<HTMLDivElement>(56, 40, 4, 14);
@@ -36,8 +117,8 @@ export function Workspace() {
     const ids = new Set(s.purchases.map((p) => p.claimId));
     const byInsurer: Record<string, number> = {};
     s.purchases.forEach((p) => { const ins = s.claims.find((c) => c.id === p.claimId)?.insurer ?? ""; byInsurer[ins] = (byInsurer[ins] ?? 0) + p.advance; });
-    return allocatePortfolio(s.claims, s.config, ids, byInsurer, s.reconciliation.deployed);
-  }, [s.claims, s.config, s.purchases, s.reconciliation.deployed]);
+    return allocatePortfolio(s.claims, s.config, ids, byInsurer, s.config.availableCapital - s.reconciliation.available);
+  }, [s.claims, s.config, s.purchases, s.reconciliation]);
 
   const rows = useMemo(() => s.claims.map((c) => ({ c, uw: underwrite(c, { minContribution: s.config.minContribution }) }))
     .filter(({ c }) => !q || `${c.id} ${c.clinic} ${c.insurer}`.toLowerCase().includes(q.toLowerCase()))
@@ -158,16 +239,34 @@ export function Workspace() {
     return i < r ? "done" : i === r ? "now" : "todo";
   };
 
+  const tabClaim = s.activeTab !== "list" ? s.claims.find((c) => c.id === s.activeTab) : undefined;
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex shrink-0 items-end gap-1 overflow-hidden" role="tablist" aria-label="Open claims">
+        <button role="tab" aria-selected={s.activeTab === "list"} onClick={() => s.setActiveTab("list")} className={`rounded-t-xl border px-4 py-2 text-[13px] whitespace-nowrap transition ${s.activeTab === "list" ? "border-slate-200 border-b-white bg-white font-semibold text-slate-900" : "border-transparent bg-transparent text-slate-500 hover:bg-white/70 hover:text-slate-800"}`}>All claims</button>
+        {s.tabs.map((id) => {
+          const c = s.claims.find((x) => x.id === id);
+          if (!c) return null;
+          const active = s.activeTab === id;
+          return (
+            <span key={id} className={`flex max-w-[210px] items-center gap-1.5 rounded-t-xl border py-2 pr-1.5 pl-3.5 whitespace-nowrap transition ${active ? "border-slate-200 border-b-white bg-white" : "border-transparent hover:bg-white/70"}`}>
+              <button role="tab" aria-selected={active} onClick={() => { s.setActiveTab(id); s.select(id); }} className={`min-w-0 truncate text-[13px] ${active ? "font-semibold text-slate-900" : "text-slate-500"}`}><span className="mono">{id}</span><span className="ml-1.5 hidden xl:inline">{c.clinic.split(" ").slice(0, 2).join(" ")}</span></button>
+              <button aria-label={`Close ${id}`} onClick={() => s.closeClaimTab(id)} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"><X className="h-3 w-3" /></button>
+            </span>
+          );
+        })}
+      </div>
+
+      {tabClaim ? <ClaimTab claim={tabClaim} /> : (<>
       <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 shadow-[0_1px_2px_rgba(16,42,51,0.05)]">
-        <p className="text-sm text-slate-500">Insurers may owe <span className="ml-1 text-[17px] font-semibold text-slate-900">{money(stats.collectible)}</span></p>
-        <p className="text-sm text-slate-500">We expect back <span className="ml-1 text-[17px] font-semibold text-slate-900">{money(stats.expectedCollection)}</span></p>
-        <p className="text-sm text-slate-500">Worth buying <span className="ml-1 text-[17px] font-semibold text-teal-800">{stats.buyCount} claims</span></p>
-        <p className="text-sm text-slate-500">Money left <span className="ml-1 text-[17px] font-semibold text-slate-900">{money(s.reconciliation.remainingCapacity)}</span></p>
-        <span className="ml-auto flex items-center gap-2">
-          {workingId && <span className="flex items-center gap-1.5 text-sm text-teal-800"><Loader2 className="h-4 w-4 animate-spin" />Agent is working on {workingId}</span>}
-          <button className={btnPrimary} disabled={plan.selected.length === 0} onClick={approveAll}>Approve all worth buying ({plan.selected.length})</button>
+        <p className="text-sm whitespace-nowrap text-slate-500">Insurers may owe <span className="ml-1 text-[17px] font-semibold text-slate-900">{money(stats.collectible)}</span></p>
+        <p className="text-sm whitespace-nowrap text-slate-500">We expect back <span className="ml-1 text-[17px] font-semibold text-slate-900">{money(stats.expectedCollection)}</span></p>
+        <p className="text-sm whitespace-nowrap text-slate-500">Worth buying <span className="ml-1 text-[17px] font-semibold text-teal-800">{stats.buyCount} claims</span></p>
+        <p className="text-sm whitespace-nowrap text-slate-500">Money free to spend <span className="ml-1 text-[17px] font-semibold text-teal-800">{money(s.reconciliation.available)}</span></p>
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {workingId && <span className="flex items-center gap-1.5 text-sm whitespace-nowrap text-teal-800"><Loader2 className="h-4 w-4 animate-spin" />Agent is working on {workingId}</span>}
+          <button className={`${btnPrimary} whitespace-nowrap`} disabled={plan.selected.length === 0} onClick={approveAll}>Approve all worth buying ({plan.selected.length})</button>
         </span>
       </div>
 
@@ -181,12 +280,12 @@ export function Workspace() {
           <div ref={tableRef} className="min-h-0 flex-1 overflow-hidden px-2">
             <table className="w-full table-fixed text-sm">
               <colgroup><col className="w-[12%]" /><col className="w-[21%]" /><col className="w-[13%]" /><col className="w-[9%]" /><col className="w-[15%]" /><col className="w-[16%]" /><col className="w-[14%]" /></colgroup>
-              <thead className="text-left text-xs text-slate-500"><tr>{["Claim", "Clinic", "Insurer may owe", "Chance", "If it goes to plan", "Stage", ""].map((h, i) => <th key={i} className={`px-3 py-2 font-medium ${i >= 2 && i <= 4 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+              <thead className="text-left text-xs text-slate-500"><tr>{["Claim", "Clinic", "Insurer may owe", "Chance", "If it goes to plan", "Stage", ""].map((h, i) => <th key={i} className={`truncate px-3 py-2 font-medium whitespace-nowrap ${i >= 2 && i <= 4 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
               <tbody>{pageRows.map(({ c, uw }) => {
                 const st = stageOf(c);
                 const bought = s.purchases.some((p) => p.claimId === c.id);
                 return (
-                  <tr key={c.id} onClick={() => s.select(c.id)} className={`cursor-pointer border-t border-slate-100 hover:bg-teal-50/60 ${c.id === s.selectedId ? "bg-teal-50" : ""}`}>
+                  <tr key={c.id} onClick={() => { s.select(c.id); s.openClaimTab(c.id); }} className={`cursor-pointer border-t border-slate-100 hover:bg-teal-50/60 ${c.id === s.selectedId ? "bg-teal-50" : ""}`}>
                     <td className="mono truncate px-3 py-2 text-[13px] font-medium text-teal-800">{c.id}</td>
                     <td className="px-3 py-2 text-slate-700"><span className="block truncate">{c.clinic}</span><span className="block truncate text-xs text-slate-400">{c.insurer}</span></td>
                     <td className="num px-3 py-2 font-medium text-slate-900">{money(c.collectible)}</td>
@@ -210,10 +309,10 @@ export function Workspace() {
                 <div><h2 className="text-[15px] font-semibold text-slate-900">{selected.clinic}</h2><p className="mono mt-0.5 text-[12px] text-slate-400">{selected.id} · {selected.insurer} · said no {dateFmt(selected.denialDate)}</p></div>
                 <Badge tone={selStage ? stageTone(selStage.key) : "zinc"}>{selStage?.word}</Badge>
               </div>
-              <ol className="mt-4 flex items-center gap-1">
-                {["Approved", "Papers checked", "Filed", "Talking", "Settled"].map((label, i) => {
+              <ol className="mt-4 grid grid-cols-5 gap-1">
+                {["Approved", "Papers", "Filed", "Talking", "Settled"].map((label, i) => {
                   const st = stepState(i);
-                  return <li key={label} className="flex flex-1 items-center gap-1 last:flex-none"><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${st === "done" ? "bg-teal-700 text-white" : st === "now" ? "bg-teal-100 text-teal-800 ring-2 ring-teal-600" : "bg-slate-100 text-slate-400"}`}>{st === "done" ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-semibold">{i + 1}</span>}</span><span className={`hidden text-[11px] whitespace-nowrap min-[1500px]:block ${st === "now" ? "font-medium text-slate-800" : "text-slate-400"}`}>{label}</span>{i < 4 && <span className="h-px flex-1 bg-slate-200" />}</li>;
+                  return <li key={label} className="flex flex-col items-center gap-1 text-center"><span className={`flex h-6 w-6 items-center justify-center rounded-full ${st === "done" ? "bg-teal-700 text-white" : st === "now" ? "bg-teal-100 text-teal-800 ring-2 ring-teal-600" : "bg-slate-100 text-slate-400"}`}>{st === "done" ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-semibold">{i + 1}</span>}</span><span className={`text-[10px] leading-tight ${st === "now" ? "font-medium text-slate-800" : "text-slate-400"}`}>{label}</span></li>;
                 })}
               </ol>
               <dl className="mt-4 space-y-1.5 border-t border-slate-100 pt-3 text-sm">
@@ -254,6 +353,7 @@ export function Workspace() {
           </section>
         </div>
       </div>
+      </>)}
     </div>
   );
 }

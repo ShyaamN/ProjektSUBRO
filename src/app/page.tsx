@@ -14,7 +14,7 @@ const NAV: { id: View; sub: string; label: string; icon: typeof FolderOpen }[] =
 
 function Shell() {
   const { view, setView, setSubtab, reconciliation, resetAll, purchases, negs } = useSubro();
-  const working = Object.values(negs).filter((n) => ["CHECKING", "FILING", "TALKING"].includes(n.stage)).length;
+  const workingClaim = Object.values(negs).find((n) => ["CHECKING", "FILING", "TALKING"].includes(n.stage));
   const go = (n: (typeof NAV)[number]) => { setView(n.id); setSubtab(n.sub); };
 
   return (
@@ -35,16 +35,21 @@ function Shell() {
                 <button key={n.id} onClick={() => go(n)} aria-current={active ? "page" : undefined} className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition lg:w-full ${active ? "bg-teal-50 font-semibold text-teal-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}>
                   <n.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-teal-700" : "text-slate-400"}`} />
                   {n.label}
-                  {n.id === "trading" && working > 0 && <span className="ml-auto flex items-center gap-1.5 text-[12px] font-medium text-teal-700"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600" />Agent working</span>}
                 </button>
               );
             })}
           </div>
         </nav>
-        <div className="mt-auto hidden px-5 pb-5 lg:block">
+        {workingClaim && (
+          <div className="mx-3 mt-4 hidden items-center gap-2.5 rounded-xl border border-teal-100 bg-teal-50 px-3.5 py-2.5 lg:flex" role="status">
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-teal-600" />
+            <span className="min-w-0 text-[12.5px] leading-snug"><span className="block font-medium text-teal-900">Agent at work</span><span className="mono block truncate text-teal-700">{workingClaim.claimId}</span></span>
+          </div>
+        )}
+        <div className="mt-auto hidden px-5 pt-4 pb-6 lg:block">
           <div className="rounded-xl bg-slate-50 px-4 py-3">
-            <p className="text-[12px] text-slate-500">Money left to spend</p>
-            <p className="mt-0.5 text-[19px] font-semibold text-slate-900">{money(reconciliation.remainingCapacity)}</p>
+            <p className="text-[12px] text-slate-500">Money free to spend</p>
+            <p className="mt-0.5 text-[19px] font-semibold text-slate-900">{money(reconciliation.available)}</p>
             <p className="mt-1 text-[12px] text-slate-400">{purchases.length} claims owned</p>
           </div>
           <button className="mt-3 flex items-center gap-1.5 text-[13px] text-slate-400 transition hover:text-slate-600" onClick={() => { if (confirm("Start fresh? Every bought claim, chase, and money entry will be wiped.")) resetAll(); }}>

@@ -20,7 +20,7 @@ export function CapitalDesk() {
   const [page, setPage] = useState(0);
   const purchasedIds = useMemo(() => new Set(s.purchases.map((p) => p.claimId)), [s.purchases]);
   const withEachInsurer = useMemo(() => { const m: Record<string, number> = {}; s.purchases.forEach((p) => { const ins = s.claims.find((c) => c.id === p.claimId)?.insurer ?? "Unknown insurer"; m[ins] = (m[ins] ?? 0) + p.advance; }); return m; }, [s.purchases, s.claims]);
-  const plan = useMemo(() => allocatePortfolio(s.claims, s.config, purchasedIds, withEachInsurer, s.reconciliation.deployed), [s.claims, s.config, purchasedIds, withEachInsurer, s.reconciliation.deployed]);
+  const plan = useMemo(() => allocatePortfolio(s.claims, s.config, purchasedIds, withEachInsurer, s.config.availableCapital - s.reconciliation.available), [s.claims, s.config, purchasedIds, withEachInsurer, s.reconciliation]);
   const set = (patch: Partial<CapitalConfig>) => { s.setConfig({ ...s.config, ...patch }); setPage(0); };
   const pages = Math.max(1, Math.ceil(plan.selected.length / perPage));
   const safePage = Math.min(page, pages - 1);
@@ -33,7 +33,7 @@ export function CapitalDesk() {
       <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Money we can spend in total" value={money(s.config.availableCapital)} />
         <Kpi label="Already spent on claims" value={money(s.reconciliation.deployed)} hint={`Across ${s.purchases.length} bought claims.`} tone="text-sky-800" />
-        <Kpi label="Money left to spend" value={money(s.reconciliation.remainingCapacity)} hint="We can never spend more than this." tone={s.reconciliation.remainingCapacity < 0 ? "text-red-700" : "text-emerald-700"} />
+        <Kpi label="Money free to spend" value={money(s.reconciliation.available)} hint="Cash in the pot right now: what we started with, minus money out, plus money back in." tone={s.reconciliation.available < 0 ? "text-red-700" : "text-emerald-700"} />
         <Kpi label="Gain we expect from the list" value={money(plan.totalExpectedContribution)} hint={`From ${plan.selected.length} more claims.`} tone="text-teal-800" />
       </div>
 
