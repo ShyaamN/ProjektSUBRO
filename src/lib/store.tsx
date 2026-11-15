@@ -4,6 +4,7 @@ import { createRun, stepAgent, type AgentRun } from "./agent";
 import { actualContribution, applyTx, reconcile } from "./capital";
 import { underwrite } from "./finance";
 import { agentStatusLabel } from "./labels";
+import type { NegState } from "./negotiate";
 import { INITIAL_CLAIMS } from "./seed";
 import type { AuditEvent, CapitalConfig, Claim, LedgerTx, Purchase } from "./types";
 
@@ -15,8 +16,8 @@ let counter = 0;
 const uid = () => `id-${++counter}-${Date.now().toString(36)}`;
 const now = () => new Date().toISOString();
 
-interface State { claims: Claim[]; config: CapitalConfig; purchases: Purchase[]; ledger: LedgerTx[]; audit: AuditEvent[]; runs: Record<string, AgentRun>; autoLog: AutoEntry[]; }
-const initial = (): State => ({ claims: INITIAL_CLAIMS, config: DEFAULT_CONFIG, purchases: [], ledger: [], audit: [{ id: "audit-init", ts: "2026-11-14T12:00:00.000Z", actor: "SYSTEM", action: "DEMO_STARTED", detail: "The demo is ready. Pick a claim to get started." }], runs: {}, autoLog: [] });
+interface State { claims: Claim[]; config: CapitalConfig; purchases: Purchase[]; ledger: LedgerTx[]; audit: AuditEvent[]; runs: Record<string, AgentRun>; autoLog: AutoEntry[]; negs: Record<string, NegState>; }
+const initial = (): State => ({ claims: INITIAL_CLAIMS, config: DEFAULT_CONFIG, purchases: [], ledger: [], audit: [{ id: "audit-init", ts: "2026-11-14T12:00:00.000Z", actor: "SYSTEM", action: "DEMO_STARTED", detail: "The demo is ready. Pick a claim to get started." }], runs: {}, autoLog: [], negs: {} });
 
 interface Ctx extends State {
   view: View; setView: (v: View) => void; subtab: string; setSubtab: (s: string) => void; selectedId: string; select: (id: string) => void;
@@ -25,6 +26,7 @@ interface Ctx extends State {
   acceptMany: (claims: Claim[]) => { accepted: number; message: string };
   stepRun: (claim: Claim) => void; runFull: (claim: Claim) => void; resetRun: (id: string) => void;
   logAuto: (kind: AutoEntry["kind"], text: string) => void; clearAutoLog: () => void;
+  setNeg: (n: NegState) => void; settleNegotiation: (claimId: string, realized: number, spent: number, endStage: string) => void;
   resetAll: () => void; reconciliation: ReturnType<typeof reconcile>; hydrated: boolean;
 }
 const C = createContext<Ctx | null>(null);
@@ -40,7 +42,7 @@ export function SubroProvider({ children }: { children: ReactNode }) {
 
   // Hydration from browser storage must happen after mount to keep server/client markup identical.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { try { const raw = localStorage.getItem(KEY); if (raw) { const p = JSON.parse(raw) as State; if (p.claims?.length >= 100) { setState({ ...initial(), ...p, autoLog: p.autoLog ?? [] }); Object.keys(p.runs ?? {}).forEach((k) => { if (p.runs[k].status !== "RUNNING") settledRef.current.add(k); }); } } } catch { /* corrupted storage falls back to seed */ } setHydrated(true); }, []);
+  useEffect(() => { try { const raw = localStorage.getItem(KEY); if (raw) { const p = JSON.parse(raw) as State; if (p.claims?.length >= 100) { setState({ ...initial(), ...p, autoLog: p.autoLog ?? [], negs: p.negs ?? {} }); Object.keys(p.runs ?? {}).forEach((k) => { if (p.runs[k].status !== "RUNNING") settledRef.current.add(k); }); } } } catch { /* corrupted storage falls back to seed */ } setHydrated(true); }, []);
   useEffect(() => { if (hydrated) try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage unavailable */ } }, [state, hydrated]);
 
   const audit = useCallback((s: State, action: string, detail: string, actor = "OPERATOR"): State => ({ ...s, audit: [{ id: uid(), ts: now(), actor, action, detail }, ...s.audit].slice(0, 300) }), []);
@@ -94,11 +96,27 @@ export function SubroProvider({ children }: { children: ReactNode }) {
   const resetRun = useCallback((id: string) => { settledRef.current.delete(id); setState((s) => ({ ...s, runs: Object.fromEntries(Object.entries(s.runs).filter(([k]) => k !== id)) })); }, []);
   const logAuto = useCallback((kind: AutoEntry["kind"], text: string) => setState((s) => ({ ...s, autoLog: [{ id: uid(), ts: now(), kind, text }, ...s.autoLog].slice(0, 400) })), []);
   const clearAutoLog = useCallback(() => setState((s) => ({ ...s, autoLog: [] })), []);
+  const setNeg = useCallback((n: NegState) => setState((s) => ({ ...s, negs: { ...s.negs, [n.claimId]: n } })), []);
+  const settledNegRef = useRef<Set<string>>(new Set());
+  const settleNegotiation = useCallback((claimId: string, realized: number, spent: number, endStage: string) => {
+    if (settledNegRef.current.has(claimId)) return;
+    settledNegRef.current.add(claimId);
+    setState((s) => {
+      const purchase = s.purchases.find((p) => p.claimId === claimId);
+      let ledger = applyTx(s.ledger, { id: uid(), idempotencyKey: `neg-cost-${claimId}`, ts: now(), claimId, type: "RECOVERY_EXPENSE", amount: -spent, memo: "What the filing and arguing cost on this claim.", realized: true }).ledger;
+      if (purchase && realized > 0) {
+        const real = actualContribution({ ...purchase, realizedCollection: realized }, spent);
+        ledger = applyTx(ledger, { id: uid(), idempotencyKey: `neg-paid-${claimId}`, ts: now(), claimId, type: "REALIZED_COLLECTION", amount: realized, memo: `The insurer paid after the debate. After paying the clinic and the chase costs, we came out ${real >= 0 ? "$" + real.toLocaleString() + " ahead" : "$" + Math.abs(real).toLocaleString() + " behind"}.`, realized: true }).ledger;
+      }
+      const purchases = s.purchases.map((p) => p.claimId === claimId ? { ...p, realizedCollection: realized, status: (realized > 0 ? "SETTLED" : endStage === "NEEDS_YOU" || endStage === "WAITING_PAPER" ? "ESCALATED" : "TERMINATED") as Purchase["status"] } : p);
+      return audit({ ...s, ledger, purchases }, "NEGOTIATION_DONE", `Claim ${claimId} ended at ${endStage}. The insurer paid $${realized.toLocaleString()} and the work cost $${spent.toLocaleString()}.`, "AI AGENT");
+    });
+  }, [audit]);
 
   const resetAll = useCallback(() => { settledRef.current.clear(); try { localStorage.removeItem(KEY); } catch {} setState(initial()); select("CASE-1042"); setView("trading"); setSubtab("glance"); }, [setView]);
 
   const reconciliation = useMemo(() => reconcile(state.config.availableCapital, state.ledger, state.purchases), [state]);
-  const value: Ctx = { ...state, view, setView, subtab, setSubtab, selectedId, select, setConfig, updateProbability, acceptOffer, acceptMany, stepRun, runFull, resetRun, resetAll, logAuto, clearAutoLog, reconciliation, hydrated };
+  const value: Ctx = { ...state, view, setView, subtab, setSubtab, selectedId, select, setConfig, updateProbability, acceptOffer, acceptMany, stepRun, runFull, resetRun, resetAll, logAuto, clearAutoLog, setNeg, settleNegotiation, reconciliation, hydrated };
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 export function useSubro() { const v = useContext(C); if (!v) throw new Error("useSubro outside provider"); return v; }

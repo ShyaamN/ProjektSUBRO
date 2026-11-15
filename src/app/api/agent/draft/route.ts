@@ -7,12 +7,14 @@ import { INITIAL_CLAIMS } from "@/lib/seed";
  * the plain letter is returned instead and the note says so openly.
  */
 export async function POST(req: Request) {
-  let claimId = "";
-  try { claimId = (await req.json())?.claimId ?? ""; } catch { /* handled below */ }
+  let claimId = ""; let round = 1; let insurerReply = "";
+  try { const b = await req.json(); claimId = b?.claimId ?? ""; round = Number(b?.round ?? 1); insurerReply = String(b?.insurerReply ?? ""); } catch { /* handled below */ }
   const claim = INITIAL_CLAIMS.find((c) => c.id === claimId);
   if (!claim) return Response.json({ error: "Unknown claim" }, { status: 400 });
 
-  const fallback = plainLetter(claim);
+  const fallback = round > 1
+    ? `Dear ${claim.insurer}, thank you for your reply on claim ${claim.id}. We do not agree yet. You said: ${insurerReply} The papers still support the full amount: ${letterFacts(claim).papers.join(", ")}. We are still asking for $${claim.collectible.toLocaleString()}, the agreed price of $${claim.allowed.toLocaleString()} minus the $${claim.patientResponsibility.toLocaleString()} the patient owes. Please look again.`
+    : plainLetter(claim);
   const key = process.env.LLM_API_KEY;
   if (!key) return Response.json({ text: fallback, source: "plain", note: "No AI key is set on the server, so the plain letter was used. Nothing was spent." });
 
@@ -32,7 +34,7 @@ export async function POST(req: Request) {
         max_tokens: 1500,
         messages: [
           { role: "system", content: "You rewrite short letters to health insurers. Use only the facts given. Never invent facts, papers, dates, or dollar figures. Keep every dollar figure exactly as given. Plain, polite English. Under 120 words. Output the letter only." },
-          { role: "user", content: `Facts: ${JSON.stringify(facts)}\n\nRewrite this letter using only those facts:\n${fallback}` },
+          { role: "user", content: `Facts: ${JSON.stringify(facts)}\n${round > 1 ? `This is round ${round} of a debate. The insurer just replied: ${insurerReply}\nWrite a firm, polite answer that answers their point using only the facts.\n` : ""}\nRewrite this letter using only those facts:\n${fallback}` },
         ],
       }),
     });

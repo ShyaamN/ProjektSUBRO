@@ -4,6 +4,7 @@ import { plainLetter, validateAiLetter, validatePicks } from "@/lib/ai";
 import { actualContribution, allocatePortfolio, applyTx } from "@/lib/capital";
 import { portfolioAnalytics, underwrite } from "@/lib/finance";
 import { evaluateSubmission } from "@/lib/insurer";
+import { fallbackMove, insurerRound } from "@/lib/negotiate";
 import { INITIAL_CLAIMS } from "@/lib/seed";
 import type { CapitalConfig, LedgerTx } from "@/lib/types";
 
@@ -87,6 +88,25 @@ describe("mock insurer (independent of agent)", () => {
   });
   it("CASE-6077 pays exactly $350 partial", () => { const r = evaluateSubmission(claim("CASE-6077"), ["E-6077-A"], 1); expect(r.outcome).toBe("PARTIAL_PAYMENT"); expect(r.amount).toBe(350); });
   it("CASE-2088 is procedurally invalid", () => { expect(evaluateSubmission(claim("CASE-2088"), ["E-2088-A"], 1).outcome).toBe("PROCEDURALLY_INVALID"); });
+});
+
+describe("insurer debate", () => {
+  it("CASE-1042 pays in full in round one", () => {
+    const r = insurerRound(claim("CASE-1042"), 1);
+    expect(r.outcome).toBe("APPROVED"); expect(r.amount).toBe(500);
+  });
+  it("CASE-6077 makes one final part offer of $350", () => {
+    const r = insurerRound(claim("CASE-6077"), 1);
+    expect(r.outcome).toBe("OFFER"); expect(r.amount).toBe(350); expect(r.final).toBe(true);
+    expect(fallbackMove(claim("CASE-6077"), r, 1, 480, 20).move).toBe("ACCEPT");
+  });
+  it("a first low offer gets pushed back, never taken", () => {
+    const offer = { outcome: "OFFER", amount: 100, reason: "low", fingerprint: "x", final: false };
+    expect(fallbackMove(claim("CASE-1042"), offer, 1, 300, 10).move).toBe("COUNTER");
+  });
+  it("CASE-3021 never reaches the debate without its paper", () => {
+    expect(insurerRound(claim("CASE-3021"), 1).outcome).toBe("EVIDENCE_REQUESTED");
+  });
 });
 
 describe("bounded recovery agent", () => {
