@@ -66,10 +66,10 @@ export function portfolioAnalytics(claims: Claim[], minContribution = 25) {
     byInsurer: by((c) => c.insurer, (c) => c.collectible),
     byCategory: by((c) => c.denialCategory, (c) => c.collectible),
     risk: [
-      { name: "p ≥ 70%", value: claims.filter((c) => c.recoveryProbability >= 0.7).length },
-      { name: "p 50–69%", value: claims.filter((c) => c.recoveryProbability >= 0.5 && c.recoveryProbability < 0.7).length },
-      { name: "p 35–49%", value: claims.filter((c) => c.recoveryProbability >= 0.35 && c.recoveryProbability < 0.5).length },
-      { name: "p < 35%", value: claims.filter((c) => c.recoveryProbability < 0.35).length },
+      { name: "Chance at least 70 out of 100", value: claims.filter((c) => c.recoveryProbability >= 0.7).length },
+      { name: "Chance 50 to 69 out of 100", value: claims.filter((c) => c.recoveryProbability >= 0.5 && c.recoveryProbability < 0.7).length },
+      { name: "Chance 35 to 49 out of 100", value: claims.filter((c) => c.recoveryProbability >= 0.35 && c.recoveryProbability < 0.5).length },
+      { name: "Chance under 35 out of 100", value: claims.filter((c) => c.recoveryProbability < 0.35).length },
     ],
   };
 }

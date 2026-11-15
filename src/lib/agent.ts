@@ -34,59 +34,59 @@ function terminate(run: AgentRun, status: AgentStatus, tool: AgentTool, reason: 
 /** One bounded, server-validatable step. The agent has no database, credential, or external-messaging access. */
 export function stepAgent(prev: AgentRun, claim: Claim): AgentRun {
   if (prev.status !== "RUNNING") return prev;
-  if (prev.events.length >= prev.maxActions) return terminate(prev, "TERMINATED", "STOP", `Maximum action count (${prev.maxActions}) reached — loop guard stopped the run.`);
+  if (prev.events.length >= prev.maxActions) return terminate(prev, "TERMINATED", "STOP", `Stopped. It reached the limit of ${prev.maxActions} steps, so it can never loop forever.`);
   const nextCost = COSTS[(phaseTool(prev.phase))];
-  if (prev.spent + nextCost > prev.budget) return terminate(prev, "TERMINATED", "STOP", `Operational budget exhausted ($${prev.spent.toFixed(0)} of $${prev.budget}). Further action is not authorized.`);
+  if (prev.spent + nextCost > prev.budget) return terminate(prev, "TERMINATED", "STOP", `Stopped. This chase has hit its spending limit of $${prev.budget}, so it will not spend another dollar.`);
 
   switch (prev.phase) {
     case "INVESTIGATE": {
-      const r = push(prev, "READ_CLAIM", `Claim ${claim.id} · ${claim.clinic} · insurer ${claim.insurer} · collectible $${claim.collectible.toLocaleString()} (allowed $${claim.allowed.toLocaleString()} − patient $${claim.patientResponsibility.toLocaleString()}; billed charges excluded). Denial: ${claim.denialCategory} — ${claim.denialReason}`, "PASS");
+      const r = push(prev, "READ_CLAIM", `${claim.clinic}. ${claim.insurer} may still owe $${claim.collectible.toLocaleString()}. They said no because: ${claim.denialReason}`, "PASS");
       return { ...r, phase: "EVIDENCE" };
     }
     case "EVIDENCE": {
       const contradictory = claim.evidence.find((e) => e.status === "CONTRADICTORY");
-      const r = push(prev, "READ_EVIDENCE", `Inspected ${claim.evidence.length} evidence record(s): ${claim.evidence.map((e) => `${e.id} [${e.status}] ${e.type}`).join("; ")}`, contradictory ? "BLOCKED" : "PASS", claim.requiredEvidenceId);
-      if (contradictory) return terminate(r, "NEEDS_HUMAN", "ESCALATE", `Contradictory evidence (${contradictory.id}: ${contradictory.note ?? "conflicting record"}). The agent will not choose the more favorable record — human reconciliation required.`);
+      const r = push(prev, "READ_EVIDENCE", `Looked at ${claim.evidence.length} papers: ${claim.evidence.map((e) => `${e.type} (${e.status === "AVAILABLE" ? "got it" : e.status === "MISSING" ? "missing" : "papers disagree"})`).join(", ")}.`, contradictory ? "BLOCKED" : "PASS", claim.requiredEvidenceId);
+      if (contradictory) return terminate(r, "NEEDS_HUMAN", "ESCALATE", `Two papers give different information. A person needs to sort that out. The helper will not just pick the paper that helps us most.`);
       return { ...r, phase: "REQUIREMENTS" };
     }
     case "REQUIREMENTS": {
       const expired = claim.deadline < AS_OF;
-      let r = push(prev, "CHECK_REQUIREMENTS", expired ? `Procedural window closed ${claim.deadline} (as of ${AS_OF}).` : `Procedural window open until ${claim.deadline}. Authorization: ${claim.authorizationStatus}. Required evidence: ${claim.requiredEvidenceId}.`, expired ? "BLOCKED" : "PASS");
-      if (expired) return terminate(r, "TERMINATED", "STOP", "Procedural window expired. No submission will be made despite the apparent collectible value.");
-      if (claim.authorizationStatus === "REQUIRED") return terminate(r, "NEEDS_HUMAN", "ESCALATE", "Specialist authorization is REQUIRED before any submission — human authorization gate.");
+      let r = push(prev, "CHECK_REQUIREMENTS", expired ? `The last day to act was ${claim.deadline}, and that day has passed.` : `There is still time. The last day to act is ${claim.deadline}, and the main paper we need is ${claim.requiredEvidenceId}.`, expired ? "BLOCKED" : "PASS");
+      if (expired) return terminate(r, "TERMINATED", "STOP", "Stopped. The deadline has passed, so there is no point writing to the insurer, however big the amount looks.");
+      if (claim.authorizationStatus === "REQUIRED") return terminate(r, "NEEDS_HUMAN", "ESCALATE", "A person needs to give approval before anyone writes to the insurer, so the helper hands this over now.");
       const req = claim.evidence.find((e) => e.id === claim.requiredEvidenceId);
-      if (!req || req.status !== "AVAILABLE") { r = push(r, "REQUEST_EVIDENCE", `Requested ${claim.requiredEvidenceId} from ${claim.clinic} via the synthetic evidence channel. The agent cannot manufacture clinical documents.`, "BLOCKED", claim.requiredEvidenceId); return { ...r, status: "NEEDS_EVIDENCE", phase: "DONE", terminalReason: `Awaiting required evidence ${claim.requiredEvidenceId}. Run paused — no draft or submission attempted.` }; }
+      if (!req || req.status !== "AVAILABLE") { r = push(r, "REQUEST_EVIDENCE", `Asked ${claim.clinic} for the missing paper (${claim.requiredEvidenceId}). The helper cannot make a paper up.`, "BLOCKED", claim.requiredEvidenceId); return { ...r, status: "NEEDS_EVIDENCE", phase: "DONE", terminalReason: `Waiting for the missing paper (${claim.requiredEvidenceId}). Nothing has been sent to the insurer.` }; }
       return { ...r, phase: "DRAFT" };
     }
     case "DRAFT": {
-      const draft = `Reconsideration request — claim ${claim.id}, service ${claim.serviceDate}. Denial basis: ${claim.denialReason}. Evidence cited: ${claim.evidence.filter((e) => e.status === "AVAILABLE").map((e) => `${e.id} (${e.type}, ${e.provenance})`).join(", ")}. Requested insurer payment $${claim.collectible.toLocaleString()} = allowed $${claim.allowed.toLocaleString()} − patient responsibility $${claim.patientResponsibility.toLocaleString()}. [Synthetic sandbox submission]`;
+      const draft = `Dear ${claim.insurer}, please take another look at claim ${claim.id} for care on ${claim.serviceDate}. You turned it down because: ${claim.denialReason}. The papers that support this claim are: ${claim.evidence.filter((e) => e.status === "AVAILABLE").map((e) => `${e.type} (${e.id})`).join(", ")}. We are asking for $${claim.collectible.toLocaleString()}. That is the price you agreed to, $${claim.allowed.toLocaleString()}, minus the $${claim.patientResponsibility.toLocaleString()} the patient owes. Thank you.`;
       const h = hash(draft);
-      if (prev.draftHash === h) { const r = push(prev, "DRAFT_RESPONSE", "Duplicate-response detection: regenerated draft is identical to the previously rejected submission.", "BLOCKED"); return terminate(r, "ESCALATED", "ESCALATE", "No new evidence and an identical draft after insurer rejection — lack of progress. Escalated instead of resubmitting duplicates."); }
-      const r = push(prev, "DRAFT_RESPONSE", `Draft generated strictly from cited evidence (${claim.requiredEvidenceId}). No unsupported facts added. Draft ${h}.`, "PASS", claim.requiredEvidenceId);
+      if (prev.draftHash === h) { const r = push(prev, "DRAFT_RESPONSE", "The new letter is word for word the same as the one the insurer already turned down, so it will not be sent again.", "BLOCKED"); return terminate(r, "ESCALATED", "ESCALATE", "Handed to a person. Nothing new has turned up, and sending the same letter again would get nowhere."); }
+      const r = push(prev, "DRAFT_RESPONSE", `Wrote a letter using only facts from the papers we have. The main paper behind it is ${claim.requiredEvidenceId}.`, "PASS", claim.requiredEvidenceId);
       return { ...r, draft, draftHash: h, phase: "SUBMIT" };
     }
     case "SUBMIT": {
-      if (prev.submissions >= MAX_SUBMISSIONS) return terminate(prev, "TERMINATED", "STOP", `Submission limit (${MAX_SUBMISSIONS}) reached.`);
+      if (prev.submissions >= MAX_SUBMISSIONS) return terminate(prev, "TERMINATED", "STOP", `Stopped. It has already written to the insurer ${MAX_SUBMISSIONS} times, and that is the limit.`);
       const submitted = claim.evidence.filter((e) => e.status === "AVAILABLE").map((e) => e.id);
       const resp = evaluateSubmission(claim, submitted, prev.submissions + 1);
-      let r = push(prev, "SUBMIT_TO_MOCK_INSURER", `Mock insurer: ${resp.outcome} — ${resp.reason} [${resp.fingerprint}]`, resp.outcome === "APPROVED" || resp.outcome === "PARTIAL_PAYMENT" ? "PASS" : "BLOCKED");
+      let r = push(prev, "SUBMIT_TO_MOCK_INSURER", `The insurer replied: ${resp.reason}`, resp.outcome === "APPROVED" || resp.outcome === "PARTIAL_PAYMENT" ? "PASS" : "BLOCKED");
       r = { ...r, submissions: prev.submissions + 1, insurerFingerprints: [...prev.insurerFingerprints, resp.fingerprint] };
       if (resp.outcome === "APPROVED") return { ...r, realized: resp.amount, phase: "RECHECK" };
       if (resp.outcome === "PARTIAL_PAYMENT") return { ...r, realized: resp.amount, phase: "RECHECK" };
-      if (resp.outcome === "EVIDENCE_REQUESTED") { r = push(r, "REQUEST_EVIDENCE", `Insurer requested ${resp.requestedEvidenceId}. Request routed to ${claim.clinic}; agent cannot fabricate it.`, "BLOCKED", resp.requestedEvidenceId); return { ...r, status: "NEEDS_EVIDENCE", phase: "DONE", terminalReason: `Insurer requested evidence ${resp.requestedEvidenceId}.` }; }
-      if (resp.outcome === "ESCALATION_REQUIRED") return terminate(r, "ESCALATED", "ESCALATE", `Insurer requires escalation: ${resp.reason}`);
-      if (resp.outcome === "PROCEDURALLY_INVALID") return terminate(r, "TERMINATED", "STOP", `Procedurally invalid: ${resp.reason}`);
+      if (resp.outcome === "EVIDENCE_REQUESTED") { r = push(r, "REQUEST_EVIDENCE", `Asked ${claim.clinic} for the paper the insurer wants (${resp.requestedEvidenceId}). The helper cannot make it up.`, "BLOCKED", resp.requestedEvidenceId); return { ...r, status: "NEEDS_EVIDENCE", phase: "DONE", terminalReason: `Waiting for a paper the insurer asked for (${resp.requestedEvidenceId}).` }; }
+      if (resp.outcome === "ESCALATION_REQUIRED") return terminate(r, "ESCALATED", "ESCALATE", `Handed to a person. ${resp.reason}`);
+      if (resp.outcome === "PROCEDURALLY_INVALID") return terminate(r, "TERMINATED", "STOP", `Stopped. ${resp.reason}`);
       // REJECTED
       const repeats = r.insurerFingerprints.filter((f) => f === resp.fingerprint).length;
-      if (repeats >= 2) return terminate(r, "TERMINATED", "STOP", "Insurer returned an unchanged substantive response twice — no progress. Terminating rather than looping.");
+      if (repeats >= 2) return terminate(r, "TERMINATED", "STOP", "Stopped. The insurer has now given the exact same answer twice, so nothing is changing.");
       return { ...r, rejectionCount: prev.rejectionCount + 1, phase: "RECHECK" };
     }
     case "RECHECK": {
       const uw = underwrite(claim, {});
       const actualSoFar = Math.round((prev.realized - uw.advance - prev.spent - COSTS.RECHECK_ECONOMICS) * 100) / 100;
-      const r = push(prev, "RECHECK_ECONOMICS", prev.realized > 0 ? `Realized (simulated) $${prev.realized.toLocaleString()} · advance $${uw.advance.toLocaleString()} · operating spend $${(prev.spent + COSTS.RECHECK_ECONOMICS).toFixed(0)} · modeled expected contribution was $${uw.expectedContribution.toLocaleString()}.` : `Reassessed economics after rejection: expected contribution $${uw.expectedContribution.toLocaleString()}, spent $${(prev.spent + COSTS.RECHECK_ECONOMICS).toFixed(0)}.`, "PASS");
-      if (prev.realized > 0) return terminate(r, prev.realized >= claim.collectible ? "RECOVERED" : "PARTIAL_RECOVERY", "STOP", prev.realized >= claim.collectible ? `Recovered in simulation: $${prev.realized.toLocaleString()} realized (not a real collection). Actual contribution vs advance/expenses: $${actualSoFar.toLocaleString()}.` : `Partial simulated recovery $${prev.realized.toLocaleString()} of $${claim.collectible.toLocaleString()} collectible. Ledger records realized, not expected, value.`);
-      if (uw.expectedContribution < 0) return terminate(r, "TERMINATED", "STOP", "Negative expected value after reassessment — stopping is the correct outcome.");
+      const r = push(prev, "RECHECK_ECONOMICS", prev.realized > 0 ? `The insurer agreed to pay $${prev.realized.toLocaleString()}. We paid the clinic $${uw.advance.toLocaleString()} and have spent $${(prev.spent + COSTS.RECHECK_ECONOMICS).toFixed(0)} chasing it so far, which leaves the real result at $${actualSoFar.toLocaleString()}.` : `Checked the numbers again after the insurer said no. On average we still expect to gain $${uw.expectedContribution.toLocaleString()}, and we have spent $${(prev.spent + COSTS.RECHECK_ECONOMICS).toFixed(0)} so far.`, "PASS");
+      if (prev.realized > 0) return terminate(r, prev.realized >= claim.collectible ? "RECOVERED" : "PARTIAL_RECOVERY", "STOP", prev.realized >= claim.collectible ? `Finished. The insurer paid the full $${prev.realized.toLocaleString()}.` : `Finished. The insurer paid $${prev.realized.toLocaleString()} of the $${claim.collectible.toLocaleString()} it may owe. The books record the $${prev.realized.toLocaleString()} that really came in.`);
+      if (uw.expectedContribution < 0) return terminate(r, "TERMINATED", "STOP", "Stopped. The numbers no longer add up, so chasing this any further would likely lose money. Stopping is the right call.");
       return { ...r, phase: "DRAFT" };
     }
     default: return terminate(prev, "TERMINATED", "STOP", `Unknown phase ${prev.phase}.`);

@@ -25,6 +25,9 @@ export const authLabel = (s: string) =>
 export const validationLabel = (v: string) =>
   ({ PASS: "Done", BLOCKED: "Needs attention", INFO: "Note" } as Record<string, string>)[v] ?? v;
 
+export const categoryLabel = (c: string) =>
+  ({ "Medical Necessity": "Insurer says the care was not needed", "Prior Authorization": "No approval was given first", "Coding / Documentation": "The bill and the notes do not match", Eligibility: "Patient cover is in doubt", "Timely Filing": "Claim may have arrived too late", "Coordination of Benefits": "Another insurer may need to pay first", "Duplicate Claim": "Claim may have been sent twice", "Bundling / Edits": "Charge may already be included in another charge" } as Record<string, string>)[c] ?? c;
+
 export const auditLabel = (a: string) => {
   if (a.startsWith("AGENT_")) return "Chase update";
   return ({ SANDBOX_INITIALIZED: "Demo ready", DEMO_STARTED: "Demo ready", OFFER_ACCEPTED: "Claim bought", CAPITAL_CONFIG_UPDATED: "Your rules changed" } as Record<string, string>)[a] ?? a;

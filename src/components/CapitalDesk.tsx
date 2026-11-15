@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Badge, Bar, Field, Kpi, Panel, btnPrimary, inputCls } from "./ui";
 import { allocatePortfolio } from "@/lib/capital";
 import { money, pct } from "@/lib/format";
-import { purchaseLabel } from "@/lib/labels";
+import { categoryLabel, purchaseLabel } from "@/lib/labels";
 import { DENIAL_CATEGORIES } from "@/lib/seed";
 import { useSubro } from "@/lib/store";
 import type { CapitalConfig } from "@/lib/types";
@@ -48,7 +48,7 @@ export function CapitalDesk() {
               <Field label="Which kinds of claims can we buy?" help="Turn kinds off if you want the helper to leave them alone.">
                 <select className={inputCls} value={s.config.eligibleCategories === "ALL" ? "ALL" : "CUSTOM"} onChange={(e) => set({ eligibleCategories: e.target.value === "ALL" ? "ALL" : [...DENIAL_CATEGORIES] })}><option value="ALL">All kinds</option><option value="CUSTOM">Let me choose</option></select>
               </Field>
-              {s.config.eligibleCategories !== "ALL" && <div className="space-y-2">{DENIAL_CATEGORIES.map((cat) => <label key={cat} className="flex items-center gap-2.5 text-sm text-slate-700"><input type="checkbox" className="h-4 w-4" checked={(s.config.eligibleCategories as string[]).includes(cat)} onChange={(e) => { const cur = s.config.eligibleCategories === "ALL" ? [...DENIAL_CATEGORIES] : [...s.config.eligibleCategories]; set({ eligibleCategories: e.target.checked ? [...cur, cat] : cur.filter((x) => x !== cat) }); }} />{cat}</label>)}</div>}
+              {s.config.eligibleCategories !== "ALL" && <div className="space-y-2">{DENIAL_CATEGORIES.map((cat) => <label key={cat} className="flex items-center gap-2.5 text-sm text-slate-700"><input type="checkbox" className="h-4 w-4" checked={(s.config.eligibleCategories as string[]).includes(cat)} onChange={(e) => { const cur = s.config.eligibleCategories === "ALL" ? [...DENIAL_CATEGORIES] : [...s.config.eligibleCategories]; set({ eligibleCategories: e.target.checked ? [...cur, cat] : cur.filter((x) => x !== cat) }); }} />{categoryLabel(cat)}</label>)}</div>}
             </div>
           </Panel>
 
