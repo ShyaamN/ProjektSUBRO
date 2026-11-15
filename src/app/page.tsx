@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { Activity, BookOpen, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Coins, FolderOpen, Sparkles } from "lucide-react";
 import { Arena } from "@/components/Arena";
 import { CapitalDesk } from "@/components/CapitalDesk";
@@ -22,6 +23,7 @@ const NAV: { id: View; label: string; icon: typeof FolderOpen; intro: string }[]
 
 function Shell() {
   const { view, setView, subtab, setSubtab, reconciliation } = useSubro();
+  const [openTab, setOpenTab] = useState<View>("trading");
   const current = NAV.find((n) => n.id === view) ?? NAV[0];
   const sections = SECTIONS[view];
   const idx = Math.max(0, sections.findIndex((s) => s.id === subtab));
@@ -31,31 +33,41 @@ function Shell() {
   return (
     <div className="grid h-screen overflow-hidden bg-[#f4f6f6] text-slate-800 lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="flex min-h-0 flex-col border-b border-slate-200 bg-white lg:border-r lg:border-b-0">
-        <div className="px-5 pt-6 pb-4">
-          <div className="text-[20px] font-bold tracking-[0.18em] text-slate-900">SUBRO</div>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">Turn denied claims into money.</p>
+        <div className="flex items-center gap-3 px-5 pt-6 pb-5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-[17px] font-bold text-white shadow-sm">S</div>
+          <div>
+            <div className="text-[17px] font-bold tracking-[0.16em] text-slate-900">SUBRO</div>
+            <p className="text-[12px] leading-snug text-slate-500">Turn denied claims into money.</p>
+          </div>
         </div>
         <nav aria-label="Main menu" className="min-h-0 flex-1 overflow-hidden px-3 pb-4">
           <div className="flex flex-wrap gap-1 lg:block lg:space-y-1">
             {NAV.map((n) => {
               const active = view === n.id;
+              const open = openTab === n.id;
+              const onTabClick = () => { if (active) setOpenTab(open ? ("" as View) : n.id); else { goView(n.id); setOpenTab(n.id); } };
               return (
                 <div key={n.id} className="shrink-0 lg:shrink">
-                  <button onClick={() => goView(n.id)} aria-current={active ? "page" : undefined} aria-expanded={active} className={`flex w-full min-w-[150px] items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm lg:min-w-0 ${active ? "bg-teal-50 font-semibold text-teal-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}>
-                    <n.icon className={`h-4.5 w-4.5 shrink-0 ${active ? "text-teal-700" : "text-slate-400"}`} />
+                  <button onClick={onTabClick} aria-current={active ? "page" : undefined} aria-expanded={open} className={`flex w-full min-w-[150px] items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition lg:min-w-0 ${active ? "bg-teal-50 font-semibold text-teal-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}>
+                    <n.icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-teal-700" : "text-slate-400"}`} />
                     <span className="flex-1">{n.label}</span>
-                    {active && <ChevronDown className="h-4 w-4 text-teal-600" />}
+                    <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "text-teal-600" : "text-slate-300 -rotate-90"}`} />
                   </button>
-                  {active && (
+                  {open && (
                     <div className="mt-0.5 ml-4 hidden border-l border-slate-200 pl-2 lg:block">
-                      {SECTIONS[n.id].map((s) => (
-                        <button key={s.id} onClick={() => setSubtab(s.id)} aria-current={subtab === s.id ? "page" : undefined} className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] ${subtab === s.id ? "bg-teal-700 font-medium text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"}`}>{s.label}</button>
-                      ))}
+                      {SECTIONS[n.id].map((s) => {
+                        const chosen = active && subtab === s.id;
+                        return <button key={s.id} onClick={() => { goView(n.id); setSubtab(s.id); setOpenTab(n.id); }} aria-current={chosen ? "page" : undefined} className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] transition ${chosen ? "bg-teal-700 font-medium text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"}`}>{s.label}</button>;
+                      })}
                     </div>
                   )}
                 </div>
               );
             })}
+          </div>
+          <div className="mt-5 hidden items-center gap-2.5 border-t border-slate-100 px-2 pt-4 lg:flex">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">OP</span>
+            <span className="min-w-0"><span className="block text-[13px] font-medium text-slate-700">Operator</span><span className="flex items-center gap-1 text-[11px] text-slate-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />All systems go</span></span>
           </div>
           <div className="mt-2 flex gap-1 lg:hidden">
             {sections.map((s) => (
@@ -73,6 +85,7 @@ function Shell() {
               <InfoTip text={current.intro} label={`What is ${current.label}?`} />
             </div>
             <p className="ml-auto text-sm text-slate-500">Money we can still spend <span className="ml-1 text-base font-semibold text-teal-800">{money(reconciliation.available)}</span></p>
+            <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[12px] font-medium text-emerald-800 md:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Live</span>
           </div>
         </header>
 
